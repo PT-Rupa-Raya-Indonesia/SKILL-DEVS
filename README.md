@@ -4,7 +4,7 @@ Kumpulan skill Claude Code untuk tim developer PT Rupa Raya Indonesia. Setiap fo
 
 | Skill | Versi | Fungsi |
 |---|---|---|
-| [`main-branch-guard`](main-branch-guard/SKILL.md) | [1.1.0](CHANGELOG.md) | Alur branch `feat/*` → `dev/<nama>` → PR `staging` → PR @onrsama → `main`. AI agent tidak bisa push/commit ke `main`/`staging`, tidak bisa membuka PR ke `main` atau me-merge PR, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
+| [`main-branch-guard`](main-branch-guard/SKILL.md) | [1.2.0](CHANGELOG.md) | Alur branch `feat/*` → `dev/<nama>` → PR `staging` → PR @onrsama → `main`. AI agent tidak bisa push/commit ke `main`/`staging`, tidak bisa membuka PR ke `main` atau me-merge PR, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
 
 ## Alur branch tim
 
@@ -67,6 +67,9 @@ Skrip ini:
 2. membuat `.github/CODEOWNERS` berisi `* @onrsama` (bila belum ada; file lama tidak ditimpa)
 3. memasang `.github/workflows/branch-flow.yml` (check yang menolak PR dari branch yang salah)
 4. menambahkan hook `PreToolUse` dan daftar `deny` ke `.claude/settings.json` (isi settings lama tetap ada; aman dijalankan ulang)
+5. menulis ringkasan aturan ke **`AGENTS.md`** dan **`CLAUDE.md`** di root repo (dibuat bila belum ada), supaya agent selain Claude (Codex, Cursor, dll.) juga membaca aturannya. Blok ini diberi penanda `<!-- skill:main-branch-guard start -->` … `end -->` dan diganti otomatis saat install ulang; isi lain di kedua file tidak disentuh.
+
+Skill ini **tidak terikat ke repo atau organisasi tertentu**: bisa dipasang di repo organisasi PT-Rupa-Raya-Indonesia maupun repo kolaborasi di akun personal (mis. milik @onrsama). Nama repo dibaca otomatis dari folder tempat skrip dijalankan. Untuk repo kolaborasi: @onrsama harus punya akses minimal **Write** agar CODEOWNERS berlaku, dan skrip ruleset dijalankan oleh pemilik/admin repo itu.
 
 <details>
 <summary>Install manual (tanpa skrip)</summary>
@@ -91,7 +94,7 @@ Lalu gabungkan isi `main-branch-guard/templates/settings.json` ke `.claude/setti
 cd /path/ke/repo-proyek
 git switch dev/<nama> && git pull
 git switch -c chore/main-branch-guard
-git add .claude/skills/main-branch-guard .claude/settings.json .github/CODEOWNERS .github/workflows/branch-flow.yml
+git add .claude/skills/main-branch-guard .claude/settings.json .github/CODEOWNERS .github/workflows/branch-flow.yml AGENTS.md CLAUDE.md
 git commit -m "chore: pasang main-branch-guard"
 git switch dev/<nama> && git merge chore/main-branch-guard && git push
 gh pr create --base staging --fill
