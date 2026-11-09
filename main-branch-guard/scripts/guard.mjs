@@ -123,25 +123,35 @@ function checkBash(cmd, cwd) {
     const t = tokens(seg);
     const gi = t.indexOf('git');
     if (/\bgh\s+pr\s+merge\b/.test(seg)) block('merge PR dilakukan manusia di GitHub, bukan oleh agent.');
-    // REST API membuat/mengubah PR: tidak bisa diperiksa sumbernya dengan andal, jadi tolak bila menyentuh base.
-    if (/\bgh\s+api\b/.test(seg) && /\/pulls\b/.test(seg) && /\bbase\b/.test(seg)) {
-      block(`gh api untuk membuat/mengubah base PR diblokir. Pakai gh pr create --base ${STAGING} dari ${PERSONAL}<nama>.`);
+    // gh api yang menulis ke PR (REST /pulls atau GraphQL) tidak bisa diperiksa sumber/tujuannya
+    // dengan andal, jadi semua yang mengubah ditolak; membaca tetap boleh.
+    if (/\bgh\s+api\b/.test(seg)) {
+      const mutating = /(-X|--method)[\s=]*(POST|PUT|PATCH|DELETE)\b/i.test(seg) || /(^|\s)(-f|-F|--field|--raw-field|--input)(\s|=|$)/.test(seg);
+      if (/\/pulls\b/.test(seg) && mutating) {
+        block(`gh api yang membuat/mengubah PR diblokir. Pakai gh pr create --base ${STAGING} dari ${PERSONAL}<nama>.`);
+      }
+      if (/\bgraphql\b/.test(seg) && /(createPullRequest|updatePullRequest|mergePullRequest|enablePullRequestAutoMerge|updatePullRequestBranch|Ruleset|BranchProtection)/i.test(seg)) {
+        block('gh api graphql yang membuat/mengubah/merge PR atau ruleset diblokir.');
+      }
     }
     // Ganti base PR yang sudah ada: head-nya tidak terlihat dari perintah, jadi tidak diizinkan.
     if (/\bgh\s+pr\s+edit\b/.test(seg) && /(\s--base\b|\s-B)/.test(seg)) {
       block('gh pr edit --base diblokir. Tutup PR lalu buka ulang dengan base yang benar.');
     }
     if (/\bgh\s+pr\s+create\b/.test(seg)) {
-      // dukung --base x, --base=x, -B x, -Bx (sama untuk --head/-H)
+      // dukung --base x, --base=x, -B x, -Bx (sama untuk --head/-H). Kumpulkan SEMUA kemunculan:
+      // bila ada lebih dari satu nilai (mis. "-Bmain" disisipkan di judul), tolak — lebih aman
+      // daripada menebak mana yang dibaca gh.
       const opt = (long, short) => {
-        const k = t.findIndex(
-          (x) => x === long || x === short || x.startsWith(`${long}=`) || (x.startsWith(short) && x.length > 2),
-        );
-        if (k === -1) return '';
-        const x = t[k];
-        if (x.startsWith(`${long}=`)) return x.slice(long.length + 1);
-        if (x !== long && x !== short) return x.slice(2).replace(/^=/, '');
-        return t[k + 1] || '';
+        const vals = [];
+        t.forEach((x, k) => {
+          if (x === long || x === short) vals.push(t[k + 1] || '');
+          else if (x.startsWith(`${long}=`)) vals.push(x.slice(long.length + 1));
+          else if (x.startsWith(short) && x.length > 2 && !x.startsWith('--')) vals.push(x.slice(2).replace(/^=/, ''));
+        });
+        const uniq = [...new Set(vals)];
+        if (uniq.length > 1) block(`${long} muncul dengan beberapa nilai (${uniq.join(', ')}). Tulis satu ${long} saja.`);
+        return uniq[0] || '';
       };
       const base = opt('--base', '-B');
       const head = opt('--head', '-H') || branch;
