@@ -1,0 +1,4 @@
+# Satu-satunya code owner untuk seluruh repo (termasuk file ini).
+# Ruleset "main-pr-only" mewajibkan approval code owner sebelum PR ke main bisa di-merge.
+# Ubah file ini hanya lewat PR yang disetujui @Onrsama.
+* @Onrsama
