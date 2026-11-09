@@ -5,10 +5,14 @@
 # Check "branch-flow" wajib lulus (lewat ruleset) sebelum PR bisa di-merge:
 #   PR ke staging  -> sumbernya harus dev/<nama>
 #   PR ke main     -> sumbernya harus staging
+#
+# Sengaja memakai pull_request_target: workflow dijalankan dari versi di branch TUJUAN,
+# jadi PR tidak bisa melemahkan check ini dengan mengubah file workflow di branch-nya.
+# Aman karena job ini tidak checkout dan tidak menjalankan kode dari PR, dan tanpa izin token.
 name: branch-flow
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main, staging]
     types: [opened, reopened, synchronize, edited]
 

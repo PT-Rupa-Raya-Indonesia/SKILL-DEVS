@@ -123,11 +123,25 @@ function checkBash(cmd, cwd) {
     const t = tokens(seg);
     const gi = t.indexOf('git');
     if (/\bgh\s+pr\s+merge\b/.test(seg)) block('merge PR dilakukan manusia di GitHub, bukan oleh agent.');
-    if (/\bgh\s+pr\s+(create|edit)\b/.test(seg)) {
+    // REST API membuat/mengubah PR: tidak bisa diperiksa sumbernya dengan andal, jadi tolak bila menyentuh base.
+    if (/\bgh\s+api\b/.test(seg) && /\/pulls\b/.test(seg) && /\bbase\b/.test(seg)) {
+      block(`gh api untuk membuat/mengubah base PR diblokir. Pakai gh pr create --base ${STAGING} dari ${PERSONAL}<nama>.`);
+    }
+    // Ganti base PR yang sudah ada: head-nya tidak terlihat dari perintah, jadi tidak diizinkan.
+    if (/\bgh\s+pr\s+edit\b/.test(seg) && /(\s--base\b|\s-B)/.test(seg)) {
+      block('gh pr edit --base diblokir. Tutup PR lalu buka ulang dengan base yang benar.');
+    }
+    if (/\bgh\s+pr\s+create\b/.test(seg)) {
+      // dukung --base x, --base=x, -B x, -Bx (sama untuk --head/-H)
       const opt = (long, short) => {
-        const k = t.findIndex((x) => x === long || x === short || x.startsWith(`${long}=`));
+        const k = t.findIndex(
+          (x) => x === long || x === short || x.startsWith(`${long}=`) || (x.startsWith(short) && x.length > 2),
+        );
         if (k === -1) return '';
-        return t[k].startsWith(`${long}=`) ? t[k].slice(long.length + 1) : t[k + 1] || '';
+        const x = t[k];
+        if (x.startsWith(`${long}=`)) return x.slice(long.length + 1);
+        if (x !== long && x !== short) return x.slice(2).replace(/^=/, '');
+        return t[k + 1] || '';
       };
       const base = opt('--base', '-B');
       const head = opt('--head', '-H') || branch;

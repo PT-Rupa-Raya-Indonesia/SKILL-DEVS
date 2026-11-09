@@ -42,7 +42,7 @@ MAIN_BODY=$(cat <<JSON
   "name": "main-pr-only",
   "target": "branch",
   "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["refs/heads/main"], "exclude": [] } },
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH", "refs/heads/main"], "exclude": [] } },
   "bypass_actors": $BYPASS,
   "rules": [
     { "type": "deletion" },
@@ -59,7 +59,7 @@ MAIN_BODY=$(cat <<JSON
     { "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [ { "context": "branch-flow" } ]
+        "required_status_checks": [ { "context": "branch-flow", "integration_id": 15368 } ]
       }
     }
   ]
@@ -89,7 +89,7 @@ STAGING_BODY=$(cat <<JSON
     { "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [ { "context": "branch-flow" } ]
+        "required_status_checks": [ { "context": "branch-flow", "integration_id": 15368 } ]
       }
     }
   ]

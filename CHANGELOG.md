@@ -22,6 +22,9 @@ feat/<x>  →  dev/<nama>  --PR-->  staging  --PR @onrsama-->  main
 - Baru: `.github/workflows/branch-flow.yml` (check `branch-flow`) yang menolak PR dari sumber yang salah.
 - Baru: ruleset `staging-pr-only`; ruleset `main-pr-only` sekarang mewajibkan check `branch-flow`.
 - `git pull` di `staging`/`main` boleh (untuk menyamakan branch lokal).
+- `branch-flow.yml` memakai `pull_request_target` (dijalankan dari versi di branch tujuan), dan check di ruleset dikunci ke GitHub Actions (`integration_id: 15368`). Tujuannya agar PR tidak bisa meluluskan check-nya sendiri dengan mengubah workflow atau memalsukan status.
+- Ruleset `main-pr-only` juga berlaku untuk default branch (`~DEFAULT_BRANCH`).
+- Hook juga membaca `-Bstaging`/`-Hdev/x` (opsi tanpa spasi), menolak `gh pr edit --base`, dan menolak `gh api` yang membuat/mengubah base PR.
 - `install.sh` mengganti seluruh folder skill (file lama yang dibuang ikut hilang) dan mencetak versi lama → baru.
 
 **Yang perlu dilakukan:**
