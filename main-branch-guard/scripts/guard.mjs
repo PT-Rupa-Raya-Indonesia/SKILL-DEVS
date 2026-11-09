@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // main-branch-guard — PreToolUse hook untuk Claude Code.
+// Alur branch:
+//   feat/<x> --merge bebas--> dev/<nama> --PR--> staging --PR oleh code owner--> main
 // Memblokir (exit 2) tiga hal, apa pun alasan yang diberikan:
-//   1. Perubahan langsung ke `main`: commit/merge/rebase/cherry-pick saat berada di main,
-//      `git push` ke main, `gh pr merge`, dan endpoint merge via `gh api`.
+//   1. Perubahan langsung ke `main` / `staging`: commit/merge/rebase/cherry-pick saat berada
+//      di branch itu, `git push` ke branch itu, `gh pr merge`, endpoint merge via `gh api`,
+//      `gh pr create` ke main, dan PR ke staging yang tidak berasal dari dev/<nama>.
 //   2. Menyentuh file ENV berisi nilai (.env, .env.local, .env.production, …) dan
 //      CLI yang mengisi secret/variabel di platform (gh secret, railway variables, …).
 //   3. Mengubah aturan penjaga itu sendiri (CODEOWNERS, hook ini, ruleset GitHub).
@@ -11,7 +14,10 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-const PROTECTED = 'main';
+const MAIN = 'main'; // hanya berubah lewat PR staging -> main yang di-approve code owner
+const STAGING = 'staging'; // hanya menerima PR dari branch personal dev/<nama>
+const PERSONAL = 'dev/'; // prefix branch personal tiap developer
+const PROTECTED = [MAIN, STAGING];
 const OWNER = '@onrsama';
 
 // File ENV yang boleh disentuh: hanya templat tanpa nilai.
@@ -23,12 +29,13 @@ const GUARD_FILES = [
   'docs/CODEOWNERS',
   '.claude/settings.json',
   '.claude/skills/main-branch-guard/',
+  '.github/workflows/branch-flow.yml',
 ];
 
 function block(reason) {
   process.stderr.write(
     `⛔ main-branch-guard: ${reason}\n` +
-      `Kebijakan tim: main hanya berubah lewat Pull Request yang disetujui ${OWNER} (CODEOWNERS), ` +
+      `Kebijakan tim: feat/<x> -> ${PERSONAL}<nama> -> PR ke ${STAGING} -> PR ${OWNER} ke ${MAIN} (CODEOWNERS), ` +
       `dan AI agent tidak mengisi/membaca ENV. Lihat .claude/skills/main-branch-guard/SKILL.md.\n`,
   );
   process.exit(2);
@@ -110,12 +117,28 @@ function checkBash(cmd, cwd) {
     }
   }
 
-  // --- main ---
+  // --- main & staging ---
   const branch = currentBranch(cwd);
   for (const seg of segments(cmd)) {
     const t = tokens(seg);
     const gi = t.indexOf('git');
-    if (/\bgh\s+pr\s+merge\b/.test(seg)) block(`merge PR hanya oleh ${OWNER} di GitHub, bukan oleh agent.`);
+    if (/\bgh\s+pr\s+merge\b/.test(seg)) block('merge PR dilakukan manusia di GitHub, bukan oleh agent.');
+    if (/\bgh\s+pr\s+(create|edit)\b/.test(seg)) {
+      const opt = (long, short) => {
+        const k = t.findIndex((x) => x === long || x === short || x.startsWith(`${long}=`));
+        if (k === -1) return '';
+        return t[k].startsWith(`${long}=`) ? t[k].slice(long.length + 1) : t[k + 1] || '';
+      };
+      const base = opt('--base', '-B');
+      const head = opt('--head', '-H') || branch;
+      if (base === MAIN) block(`PR ke ${MAIN} hanya dibuka ${OWNER} dari ${STAGING}.`);
+      if (!base && /\bgh\s+pr\s+create\b/.test(seg)) {
+        block(`gh pr create tanpa --base akan mengarah ke ${MAIN}. Pakai --base ${PERSONAL}<nama> (dari feat/*) atau --base ${STAGING} (dari ${PERSONAL}<nama>).`);
+      }
+      if (base === STAGING && !head.startsWith(PERSONAL)) {
+        block(`PR ke ${STAGING} hanya dari branch personal ${PERSONAL}<nama> (sekarang: ${head || '?'}). Gabungkan dulu ke ${PERSONAL}<nama>, lalu buka PR dari sana.`);
+      }
+    }
     if (gi === -1) continue;
     // lewati opsi global git (-C dir, -c k=v)
     let i = gi + 1;
@@ -124,25 +147,22 @@ function checkBash(cmd, cwd) {
     const rest = t.slice(i + 1);
 
     if (sub === 'push') {
-      if (rest.some((x) => x === '--all' || x === '--mirror')) block('git push --all/--mirror ikut mendorong main.');
-      const hitsMain = rest.some(
-        (x) =>
-          x === PROTECTED ||
-          x === `+${PROTECTED}` ||
-          x.endsWith(`:${PROTECTED}`) ||
-          x.endsWith(`refs/heads/${PROTECTED}`),
+      if (rest.some((x) => x === '--all' || x === '--mirror')) block(`git push --all/--mirror ikut mendorong ${MAIN}/${STAGING}.`);
+      const hit = PROTECTED.find((b) =>
+        rest.some((x) => x === b || x === `+${b}` || x.endsWith(`:${b}`) || x.endsWith(`refs/heads/${b}`)),
       );
       const refspecs = rest.filter((x) => !x.startsWith('-'));
-      const implicit = refspecs.length <= 1 && branch === PROTECTED; // `git push` / `git push origin` di main
-      if (hitsMain || implicit) block(`git push ke ${PROTECTED} diblokir. Push ke branch fitur lalu buka PR.`);
+      const implicit = refspecs.length <= 1 && PROTECTED.includes(branch) ? branch : ''; // `git push` di main/staging
+      const target = hit || implicit;
+      if (target) block(`git push ke ${target} diblokir. Push ke feat/* atau ${PERSONAL}<nama>, lalu buka PR ${PERSONAL}<nama> -> ${STAGING}.`);
     }
 
-    if (branch === PROTECTED && ['commit', 'merge', 'rebase', 'cherry-pick', 'revert', 'am', 'pull'].includes(sub)) {
-      block(`"git ${sub}" saat berada di branch ${PROTECTED}. Buat branch dulu: git switch -c <tipe>/<ringkas>.`);
+    // `git pull` tetap boleh: menyamakan staging lokal sebelum membuat branch.
+    if (PROTECTED.includes(branch) && ['commit', 'merge', 'rebase', 'cherry-pick', 'revert', 'am'].includes(sub)) {
+      block(`"git ${sub}" saat berada di branch ${branch}. Pindah dulu: git switch ${PERSONAL}<nama> lalu git switch -c feat/<ringkas>.`);
     }
-    if (sub === 'update-ref' && rest.some((x) => x.endsWith(`refs/heads/${PROTECTED}`))) {
-      block(`git update-ref pada ${PROTECTED} diblokir.`);
-    }
+    const ur = PROTECTED.find((b) => rest.some((x) => x.endsWith(`refs/heads/${b}`)));
+    if (sub === 'update-ref' && ur) block(`git update-ref pada ${ur} diblokir.`);
   }
 }
 

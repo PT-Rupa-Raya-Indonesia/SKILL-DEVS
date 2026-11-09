@@ -12,7 +12,9 @@
       "Edit(./.env.development)",
       "Bash(gh pr merge:*)",
       "Bash(git push origin main:*)",
-      "Bash(git push origin HEAD:main:*)"
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git push origin staging:*)",
+      "Bash(git push origin HEAD:staging:*)"
     ]
   },
   "hooks": {
