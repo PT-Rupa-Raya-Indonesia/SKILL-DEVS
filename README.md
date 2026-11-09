@@ -4,7 +4,7 @@ Kumpulan skill Claude Code untuk tim developer PT Rupa Raya Indonesia. Setiap fo
 
 | Skill | Fungsi |
 |---|---|
-| [`main-branch-guard`](main-branch-guard/SKILL.md) | `main` hanya berubah lewat PR yang di-approve **@Onrsama** (CODEOWNERS). AI agent tidak bisa push/merge/commit ke `main`, tidak bisa `gh pr merge`, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
+| [`main-branch-guard`](main-branch-guard/SKILL.md) | `main` hanya berubah lewat PR yang di-approve **@onrsama** (CODEOWNERS). AI agent tidak bisa push/merge/commit ke `main`, tidak bisa `gh pr merge`, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
 
 ## Cara install
 
@@ -35,7 +35,7 @@ Untuk skill lain: `bash ~/SKILL-DEVS/install.sh /path/ke/repo-proyek <nama-skill
 Skrip ini:
 
 1. menyalin skill ke `repo-proyek/.claude/skills/main-branch-guard/`
-2. membuat `.github/CODEOWNERS` berisi `* @Onrsama` (bila belum ada; file lama tidak ditimpa)
+2. membuat `.github/CODEOWNERS` berisi `* @onrsama` (bila belum ada; file lama tidak ditimpa)
 3. menambahkan hook `PreToolUse` dan daftar `deny` ke `.claude/settings.json` (isi settings lama tetap dipertahankan; aman dijalankan ulang)
 
 <details>
@@ -64,7 +64,7 @@ git push -u origin chore/main-branch-guard
 gh pr create --base main --fill
 ```
 
-### 4. Aktifkan penguncian di GitHub (hanya @Onrsama, sekali per repo)
+### 4. Aktifkan penguncian di GitHub (hanya @onrsama, sekali per repo)
 
 Setelah PR di-merge, dari repo proyek:
 
@@ -73,7 +73,7 @@ bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh --dry-r
 bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
 ```
 
-Ini memasang ruleset `main-pr-only`: `main` wajib lewat PR, wajib approval code owner, tidak bisa force-push atau dihapus, dan admin hanya bisa bypass lewat PR. Pastikan hanya @Onrsama yang ber-role **Admin** di repo itu.
+Ini memasang ruleset `main-pr-only`: `main` wajib lewat PR, wajib approval code owner, tidak bisa force-push atau dihapus, dan admin hanya bisa bypass lewat PR. Pastikan hanya @onrsama yang ber-role **Admin** di repo itu.
 
 > Repo **private** di akun personal butuh GitHub Pro untuk ruleset. Repo di organisasi (seperti PT-Rupa-Raya-Indonesia) memakai paket organisasi; bila API menolak, buat *Settings › Branches › Branch protection rule* untuk `main` dengan opsi yang sama.
 
@@ -90,11 +90,11 @@ Di sesi Claude Code repo proyek, minta: *"push langsung ke main"* atau *"isi .en
 | Lapis | Menahan |
 |---|---|
 | Ruleset GitHub `main-pr-only` | semua orang & semua agent (penegak utama) |
-| `.github/CODEOWNERS` → `* @Onrsama` | merge tanpa approval @Onrsama |
+| `.github/CODEOWNERS` → `* @onrsama` | merge tanpa approval @onrsama |
 | Hook Claude Code (`guard.mjs`) | agent Claude di laptop, sebelum perintah dijalankan |
 
 Hook hanya mengikat Claude Code. Agent lain (Codex, Cursor, dsb.) tetap tertahan ruleset GitHub.
 
 ## Mengubah skill
 
-Skill di repo ini juga mengikuti aturannya sendiri: ubah lewat branch + PR yang di-approve @Onrsama. Hook memblokir AI agent menyunting file penjaga (`CODEOWNERS`, `.claude/settings.json`, folder skill) di repo proyek, jadi perubahan dilakukan manusia.
+Skill di repo ini juga mengikuti aturannya sendiri: ubah lewat branch + PR yang di-approve @onrsama. Hook memblokir AI agent menyunting file penjaga (`CODEOWNERS`, `.claude/settings.json`, folder skill) di repo proyek, jadi perubahan dilakukan manusia.

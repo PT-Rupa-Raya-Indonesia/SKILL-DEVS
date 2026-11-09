@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 const PROTECTED = 'main';
-const OWNER = '@Onrsama';
+const OWNER = '@onrsama';
 
 // File ENV yang boleh disentuh: hanya templat tanpa nilai.
 const ENV_TEMPLATES = new Set(['.env.example', '.env.sample', '.env.template']);

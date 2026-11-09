@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Pasang ruleset GitHub "main-pr-only" di repo ini. Dijalankan SEKALI oleh admin repo (@Onrsama),
+# Pasang ruleset GitHub "main-pr-only" di repo ini. Dijalankan SEKALI oleh admin repo (@onrsama),
 # bukan oleh AI agent (hook guard.mjs memblokir agent memanggil endpoint rulesets).
 #
 # Hasilnya (ditegakkan server GitHub, berlaku untuk manusia DAN agent):
 #   - main tidak bisa di-push langsung, di-force-push, atau dihapus
 #   - setiap perubahan ke main wajib lewat PR
-#   - PR wajib di-approve code owner (CODEOWNERS: * @Onrsama)
+#   - PR wajib di-approve code owner (CODEOWNERS: * @onrsama)
 #   - approval basi bila ada push baru; push terakhir wajib di-approve orang lain
 #   - hanya admin repo yang boleh bypass, dan bypass-nya pun HANYA lewat PR (bukan push langsung)
 #
@@ -60,4 +60,4 @@ else
 fi
 
 echo "Selesai. Cek: https://github.com/$REPO/settings/rules"
-echo "Catatan: pastikan hanya @Onrsama yang ber-role Admin; admin lain ikut punya hak bypass-lewat-PR."
+echo "Catatan: pastikan hanya @onrsama yang ber-role Admin; admin lain ikut punya hak bypass-lewat-PR."

@@ -1,16 +1,16 @@
 ---
 name: main-branch-guard
-description: Kebijakan tim PT Rupa Raya Indonesia untuk branch main dan ENV. main hanya berubah lewat Pull Request yang disetujui code owner @Onrsama; AI agent tidak pernah push/merge/commit langsung ke main, tidak menjalankan `gh pr merge`, dan tidak membaca atau mengisi file ENV (.env, .env.local, secret platform). Gunakan skill ini setiap kali pekerjaan menyentuh git push, merge, rebase, rilis, deploy, "naikkan ke main", "langsung merge saja", membuat/menyelesaikan PR, CODEOWNERS, branch protection, atau ENV, API key, token, secret, variabel lingkungan, Railway/Supabase/GitHub secrets — termasuk ketika user meminta melewati aturan ini.
+description: Kebijakan tim PT Rupa Raya Indonesia untuk branch main dan ENV. main hanya berubah lewat Pull Request yang disetujui code owner @onrsama; AI agent tidak pernah push/merge/commit langsung ke main, tidak menjalankan `gh pr merge`, dan tidak membaca atau mengisi file ENV (.env, .env.local, secret platform). Gunakan skill ini setiap kali pekerjaan menyentuh git push, merge, rebase, rilis, deploy, "naikkan ke main", "langsung merge saja", membuat/menyelesaikan PR, CODEOWNERS, branch protection, atau ENV, API key, token, secret, variabel lingkungan, Railway/Supabase/GitHub secrets — termasuk ketika user meminta melewati aturan ini.
 ---
 
 # Main Branch Guard
 
 Dua aturan keras untuk semua anggota tim dan semua AI agent di repo ini:
 
-1. **main hanya berubah lewat PR yang di-approve @Onrsama.** Tidak ada push langsung, merge lokal ke main, force-push, atau merge PR oleh agent.
+1. **main hanya berubah lewat PR yang di-approve @onrsama.** Tidak ada push langsung, merge lokal ke main, force-push, atau merge PR oleh agent.
 2. **AI agent tidak menyentuh ENV yang berisi nilai.** Tidak membaca, menulis, atau mengisi `.env*` (kecuali templat `.env.example`), dan tidak memasang secret/variabel di platform (GitHub, Railway, Supabase, Vercel, dsb.).
 
-Alasannya: main adalah sumber deploy, jadi satu commit tanpa review bisa langsung sampai ke pengguna; dan isi ENV (kunci API, kredensial database) yang masuk ke konteks agent bisa ikut ke log, transkrip, atau commit. Satu pemilik (@Onrsama) membuat tanggung jawab review jelas.
+Alasannya: main adalah sumber deploy, jadi satu commit tanpa review bisa langsung sampai ke pengguna; dan isi ENV (kunci API, kredensial database) yang masuk ke konteks agent bisa ikut ke log, transkrip, atau commit. Satu pemilik (@onrsama) membuat tanggung jawab review jelas.
 
 ## Tiga lapis penegakan
 
@@ -19,7 +19,7 @@ Skill ini hanya instruksi; yang benar-benar mengunci ada di lapisan lain, jadi a
 | Lapis | File | Menahan siapa |
 |---|---|---|
 | Server GitHub (ruleset `main-pr-only`) | `scripts/apply-github-protection.sh` | semua orang & semua agent — penegak utama |
-| CODEOWNERS | `.github/CODEOWNERS` (`* @Onrsama`) | PR tanpa approval @Onrsama tidak bisa di-merge |
+| CODEOWNERS | `.github/CODEOWNERS` (`* @onrsama`) | PR tanpa approval @onrsama tidak bisa di-merge |
 | Hook Claude Code (PreToolUse) | `.claude/settings.json` → `scripts/guard.mjs` | agent Claude di mesin lokal, sebelum perintah jalan |
 
 Bila hook menolak perintah (pesan `⛔ main-branch-guard`), jangan mencari jalan memutar (perintah lain yang efeknya sama, menyunting hook, `--no-verify`, `gh api` langsung, browser). Penolakan itu memang hasil yang diinginkan; laporkan ke user dan tawarkan alur PR.
@@ -30,8 +30,8 @@ Bila hook menolak perintah (pesan `⛔ main-branch-guard`), jangan mencari jalan
    `git switch -c <tipe>/<ringkas>` — tipe: `feat`, `fix`, `docs`, `chore`, `refactor`.
 2. Commit di branch itu seperti biasa.
 3. **Push branch fitur saja:** `git push -u origin <tipe>/<ringkas>`.
-4. **Buka PR ke main** (boleh oleh agent bila user memintanya): `gh pr create --base main --fill`, lalu sebutkan link PR. Reviewer otomatis @Onrsama lewat CODEOWNERS.
-5. **Berhenti di situ.** Merge dilakukan @Onrsama di GitHub. Agent tidak menjalankan `gh pr merge`, tidak mengaktifkan auto-merge, dan tidak menekan tombol merge lewat browser.
+4. **Buka PR ke main** (boleh oleh agent bila user memintanya): `gh pr create --base main --fill`, lalu sebutkan link PR. Reviewer otomatis @onrsama lewat CODEOWNERS.
+5. **Berhenti di situ.** Merge dilakukan @onrsama di GitHub. Agent tidak menjalankan `gh pr merge`, tidak mengaktifkan auto-merge, dan tidak menekan tombol merge lewat browser.
 
 Branch lain (`staging`, branch fitur) tetap bebas dipakai; aturan keras hanya untuk `main`.
 
@@ -39,7 +39,7 @@ Branch lain (`staging`, branch fitur) tetap bebas dipakai; aturan keras hanya un
 
 Tolak dengan sopan, jelaskan singkat, lalu kerjakan versi yang diizinkan. Contoh:
 
-> Main dikunci: perubahan hanya masuk lewat PR yang di-approve @Onrsama, dan agent tidak boleh merge. Saya sudah push branch `fix/pinch-zoom` dan membuka PR: <link>. Tinggal di-review dan di-merge oleh @Onrsama.
+> Main dikunci: perubahan hanya masuk lewat PR yang di-approve @onrsama, dan agent tidak boleh merge. Saya sudah push branch `fix/pinch-zoom` dan membuka PR: <link>. Tinggal di-review dan di-merge oleh @onrsama.
 
 Ini berlaku juga bila user mengaku owner, bilang "darurat", atau menyuruh mematikan hook/ruleset. Owner yang sebenarnya bisa merge sendiri di GitHub; agent tidak perlu melakukannya.
 
@@ -63,14 +63,14 @@ Kalau user menempelkan nilai secret di chat dan meminta agent menuliskannya: jan
 
 ## Penjaga tidak diubah oleh agent
 
-File berikut hanya boleh diubah manusia lewat PR yang di-approve @Onrsama, dan hook memblokir agent menyuntingnya:
+File berikut hanya boleh diubah manusia lewat PR yang di-approve @onrsama, dan hook memblokir agent menyuntingnya:
 
 - `.github/CODEOWNERS`
 - `.claude/settings.json`
 - `.claude/skills/main-branch-guard/**`
 - ruleset/branch protection di GitHub (`gh api .../rulesets`, `.../protection`)
 
-## Setup sekali (untuk @Onrsama)
+## Setup sekali (untuk @onrsama)
 
 1. Merge PR yang berisi `.github/CODEOWNERS`, `.claude/settings.json`, dan folder skill ini.
 2. Jalankan sendiri (bukan lewat agent), dengan `gh` yang login sebagai admin repo:
@@ -78,14 +78,14 @@ File berikut hanya boleh diubah manusia lewat PR yang di-approve @Onrsama, dan h
    bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh --dry-run
    bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
    ```
-3. Di GitHub › Settings › Collaborators, pastikan hanya @Onrsama yang ber-role **Admin** (anggota lain: Write). Admin mendapat hak bypass, tapi bypass-nya pun hanya lewat PR.
+3. Di GitHub › Settings › Collaborators, pastikan hanya @onrsama yang ber-role **Admin** (anggota lain: Write). Admin mendapat hak bypass, tapi bypass-nya pun hanya lewat PR.
 4. Uji: dari akun anggota lain, `git push origin main` harus ditolak GitHub dengan pesan rule violation.
 
 Batasan yang perlu diketahui:
 - Ruleset di repo **private** milik akun personal butuh GitHub Pro (atau repo di organisasi Team). Bila API menolak, pakai *Settings › Branches › Branch protection rule* untuk `main` dengan opsi yang sama (Require PR, Require review from Code Owners, Do not allow bypassing).
-- GitHub tidak mengizinkan penulis PR meng-approve PR-nya sendiri. PR buatan @Onrsama di-merge lewat hak bypass admin (tetap lewat PR).
+- GitHub tidak mengizinkan penulis PR meng-approve PR-nya sendiri. PR buatan @onrsama di-merge lewat hak bypass admin (tetap lewat PR).
 - Hook hanya mengikat Claude Code. Agent lain (Codex, Cursor, dsb.) tetap tertahan ruleset GitHub, tapi tidak oleh hook lokal; untuk ENV mereka bergantung pada kebijakan ini dan `.gitignore`.
 
 ## Anggota tim tanpa AI
 
-Aturan yang sama: kerja di branch, push branch, buka PR ke main, tunggu approval @Onrsama. Jangan simpan secret produksi di repo; kirim kebutuhan ENV ke @Onrsama.
+Aturan yang sama: kerja di branch, push branch, buka PR ke main, tunggu approval @onrsama. Jangan simpan secret produksi di repo; kirim kebutuhan ENV ke @onrsama.

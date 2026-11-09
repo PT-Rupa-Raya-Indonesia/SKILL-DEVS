@@ -31,11 +31,11 @@ echo "✓ skill disalin ke $DEST"
 
 if [[ "$SKILL" == "main-branch-guard" ]]; then
   if [[ -f "$TARGET/.github/CODEOWNERS" ]]; then
-    echo "• .github/CODEOWNERS sudah ada — tidak ditimpa. Pastikan berisi: * @Onrsama"
+    echo "• .github/CODEOWNERS sudah ada — tidak ditimpa. Pastikan berisi: * @onrsama"
   else
     mkdir -p "$TARGET/.github"
     cp "$HERE/$SKILL/templates/CODEOWNERS" "$TARGET/.github/CODEOWNERS"
-    echo "✓ .github/CODEOWNERS dibuat (* @Onrsama)"
+    echo "✓ .github/CODEOWNERS dibuat (* @onrsama)"
   fi
 
   node - "$HERE/$SKILL/templates/settings.json" "$TARGET/.claude/settings.json" <<'JS'
@@ -58,7 +58,7 @@ JS
 
 Langkah berikutnya:
   1. Commit di branch baru lalu buka PR ke main (jangan langsung ke main).
-  2. Setelah PR di-merge, @Onrsama menjalankan:
+  2. Setelah PR di-merge, @onrsama menjalankan:
        bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh --dry-run
        bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
   3. Buka ulang sesi Claude Code agar hook terbaca.
