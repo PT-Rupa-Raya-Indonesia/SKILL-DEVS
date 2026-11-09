@@ -7,6 +7,17 @@ Aturan versi:
 - **minor** (1.**x**.0) — aturan atau file baru; tim perlu menjalankan ulang `install.sh`
 - **major** (**x**.0.0) — alur kerja berubah; tim perlu membaca catatan ini dulu
 
+## main-branch-guard 1.2.0 — 2026-11-09
+
+- `install.sh` menulis ringkasan aturan ke **`AGENTS.md`** dan **`CLAUDE.md`** di root repo proyek (dibuat bila belum ada). Blok bertanda `<!-- skill:main-branch-guard start/end -->` diganti saat install ulang; isi lain tidak disentuh. Agent selain Claude (Codex, Cursor, dll.) jadi ikut membaca aturannya.
+- Hook menolak `--base`/`--head` yang muncul lebih dari sekali dengan nilai berbeda, dan semua `gh api` yang menulis ke PR (REST `/pulls` maupun mutasi GraphQL PR/ruleset).
+- README: skill tidak terikat ke repo/organisasi tertentu; catatan untuk repo kolaborasi di akun personal.
+
+**Yang perlu dilakukan:**
+1. Semua dev: `git -C ~/SKILL-DEVS pull`, lalu `bash ~/SKILL-DEVS/install.sh <repo-proyek>`.
+2. Commit `AGENTS.md` dan `CLAUDE.md` bersama file skill lewat alur biasa (`feat/*` → `dev/<nama>` → PR `staging`).
+3. Ruleset tidak berubah; @onrsama tidak perlu menjalankan ulang skrip ruleset.
+
 ## main-branch-guard 1.1.0 — 2026-11-09
 
 Alur branch baru:
