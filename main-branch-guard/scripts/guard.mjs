@@ -18,7 +18,7 @@ const MAIN = 'main'; // hanya berubah lewat PR staging -> main yang di-approve c
 const STAGING = 'staging'; // hanya menerima PR dari branch personal dev/<nama>
 const PERSONAL = 'dev/'; // prefix branch personal tiap developer
 const PROTECTED = [MAIN, STAGING];
-const OWNER = '@onrsama';
+const OWNER = '@onrsama/@ahmadaqib';
 
 // File ENV yang boleh disentuh: hanya templat tanpa nilai.
 const ENV_TEMPLATES = new Set(['.env.example', '.env.sample', '.env.template']);
@@ -67,6 +67,47 @@ function currentBranch(cwd) {
   } catch {
     return '';
   }
+}
+
+function git(cwd, args) {
+  try {
+    return execFileSync('git', args, { cwd: cwd || process.cwd(), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return null;
+  }
+}
+
+// --- Format pesan commit & judul PR: Conventional Commits ---
+// <tipe>(<scope opsional>)<! opsional>: <ringkasan>   — maks 72 karakter
+const COMMIT_TYPES = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert'];
+const COMMIT_RE = new RegExp(`^(${COMMIT_TYPES.join('|')})(\\([a-z0-9._/-]+\\))?!?: \\S.*$`);
+const VAGUE_RE = /^(update|updates|fix|fixes|wip|change|changes|misc|minor|perbaikan|ubah|edit|tes|test|coba|asdf|\.+)\.?$/i;
+
+function checkSubject(subject, what) {
+  const s = subject.trim();
+  if (/^(Merge |Revert ")/.test(s)) return; // pesan bawaan git
+  const example = `contoh: "fix(nav): pinch touchpad tidak lagi men-zoom halaman"`;
+  if (!COMMIT_RE.test(s)) {
+    block(`${what} "${s}" tidak mengikuti format <tipe>(<scope>): <ringkasan>. Tipe: ${COMMIT_TYPES.join(', ')}; ${example}.`);
+  }
+  if (s.length > 72) block(`${what} terlalu panjang (${s.length} > 72 karakter). Ringkas baris pertama; detail taruh di body.`);
+  const desc = s.replace(/^[^:]+:\s*/, '');
+  if (desc.length < 8 || VAGUE_RE.test(desc)) block(`${what} "${s}" terlalu umum. Tulis apa yang berubah dan di mana; ${example}.`);
+}
+
+function checkCommitMessage(cmd) {
+  if (!/\bgit\b[^\n]*\bcommit\b/.test(cmd)) return;
+  if (/--amend\b/.test(cmd) && /--no-edit\b/.test(cmd)) return;
+  let subject = null;
+  const here = cmd.match(/<<-?\s*['"]?(\w+)['"]?[^\n]*\n([\s\S]*?)\n\s*\1\b/);
+  if (here && /(-m|--message|-F|--file)\b/.test(cmd)) {
+    subject = here[2].split('\n').find((l) => l.trim()) || '';
+  } else {
+    // -m, --message, dan flag gabungan seperti -am / -sm
+    const m = cmd.match(/(?:\s-[a-zA-Z]*m|\s--message)(?:=|\s+)(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))/);
+    if (m) subject = (m[1] ?? m[2] ?? m[3] ?? '').split(/\\n|\n/)[0];
+  }
+  if (subject !== null) checkSubject(subject, 'Pesan commit');
 }
 
 // Pecah perintah majemuk (&&, ||, ;, |, baris baru) jadi segmen-segmen.
@@ -162,6 +203,24 @@ function checkBash(cmd, cwd) {
       if (base === STAGING && !head.startsWith(PERSONAL)) {
         block(`PR ke ${STAGING} hanya dari branch personal ${PERSONAL}<nama> (sekarang: ${head || '?'}). Gabungkan dulu ke ${PERSONAL}<nama>, lalu buka PR dari sana.`);
       }
+      // Judul PR eksplisit ikut format commit.
+      const ti = t.findIndex((x) => x === '--title' || x === '-t' || x.startsWith('--title='));
+      if (ti !== -1) checkSubject(t[ti].startsWith('--title=') ? t[ti].slice(8) : t[ti + 1] || '', 'Judul PR');
+      // Sebelum PR ke staging: branch sudah memuat staging terbaru dan sudah di-push.
+      if (base === STAGING) {
+        const fix = `git fetch origin && git switch ${head} && git pull origin ${STAGING} && git push`;
+        if (git(cwd, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${STAGING}`]) === null) {
+          block(`origin/${STAGING} belum ada di lokal. Jalankan dulu: git fetch origin`);
+        }
+        if (git(cwd, ['merge-base', '--is-ancestor', `origin/${STAGING}`, head]) === null) {
+          block(`${head} belum memuat ${STAGING} terbaru. Sinkronkan dulu, selesaikan konflik di branch sendiri, lalu push: ${fix}`);
+        }
+        const local = git(cwd, ['rev-parse', head]);
+        const remote = git(cwd, ['rev-parse', `refs/remotes/origin/${head}`]);
+        if (!remote || local !== remote) {
+          block(`${head} di lokal belum sama dengan origin/${head} (belum di-push atau tertinggal). Jalankan: git switch ${head} && git pull --rebase && git push`);
+        }
+      }
     }
     if (gi === -1) continue;
     // lewati opsi global git (-C dir, -c k=v)
@@ -205,6 +264,7 @@ process.stdin.on('end', () => {
 
   if (tool === 'Bash') {
     checkBash(String(ti.command || ''), cwd);
+    checkCommitMessage(String(ti.command || ''));
   } else {
     const p = ti.file_path || ti.notebook_path || ti.path || '';
     if (isEnvValueFile(p)) block(`${tool} pada file ENV "${path.basename(p)}" diblokir (baca maupun tulis).`);

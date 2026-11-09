@@ -1,6 +1,6 @@
 # Dipasang oleh SKILL-DEVS/main-branch-guard. Jangan diubah langsung; ubah di SKILL-DEVS.
 #
-# Alur branch:  feat/<x>  ->  dev/<nama>  --PR-->  staging  --PR @onrsama-->  main
+# Alur branch:  feat/<x>  ->  dev/<nama>  --PR-->  staging  --PR @onrsama/@ahmadaqib-->  main
 #
 # Check "branch-flow" wajib lulus (lewat ruleset) sebelum PR bisa di-merge:
 #   PR ke staging  -> sumbernya harus dev/<nama>
@@ -26,6 +26,7 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPO: ${{ github.repository }}
         run: |
@@ -46,4 +47,13 @@ jobs:
                    exit 1 ;;
               esac ;;
           esac
-          echo "OK: $HEAD_REF -> $BASE_REF"
+          # Judul PR: <tipe>(<scope>): <ringkasan>, maks 72 karakter (Conventional Commits).
+          if ! printf '%s' "$PR_TITLE" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: [^ ].{6,}$'; then
+            echo "::error::Judul PR \"$PR_TITLE\" harus berformat <tipe>(<scope>): <ringkasan>. Contoh: feat(auth): login dengan magic link"
+            exit 1
+          fi
+          if [ "${#PR_TITLE}" -gt 72 ]; then
+            echo "::error::Judul PR terlalu panjang (${#PR_TITLE} > 72 karakter)."
+            exit 1
+          fi
+          echo "OK: $HEAD_REF -> $BASE_REF · $PR_TITLE"

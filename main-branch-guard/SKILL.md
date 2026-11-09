@@ -1,6 +1,6 @@
 ---
 name: main-branch-guard
-description: Kebijakan tim PT Rupa Raya Indonesia untuk alur branch dan ENV. Alurnya feat/<x> → dev/<nama> (branch personal) → PR ke staging → PR staging → main yang hanya dibuka dan di-approve code owner @onrsama. AI agent tidak pernah push/commit langsung ke main atau staging, tidak membuka PR ke main, tidak menjalankan `gh pr merge`, dan tidak membaca atau mengisi file ENV (.env, .env.local, secret platform). Gunakan skill ini setiap kali pekerjaan menyentuh git push, commit, merge, rebase, membuat branch, membuka/menyelesaikan PR, staging, rilis, deploy, "naikkan ke main", "langsung merge saja", CODEOWNERS, branch protection, atau ENV, API key, token, secret, variabel lingkungan, Railway/Supabase/GitHub secrets — termasuk ketika user meminta melewati aturan ini.
+description: Kebijakan git & ENV tim PT Rupa Raya Indonesia, berlaku di semua project dan repo. Alurnya feat/<x> → dev/<nama> (branch personal) → PR ke staging → PR staging → main yang di-approve code owner @onrsama atau @ahmadaqib. Agent selalu pull/sinkron dengan staging sebelum push dan membuka PR, menulis commit dan judul PR berformat Conventional Commits (`fix(nav): ...`), tidak pernah push/commit langsung ke main atau staging, tidak membuka PR ke main, tidak menjalankan `gh pr merge`, dan tidak membaca atau mengisi file ENV (.env, .env.local, secret platform). Gunakan skill ini setiap kali pekerjaan menyentuh git commit, pesan commit, push, pull, merge, rebase, konflik, membuat branch, membuka/menyelesaikan PR, staging, rilis, deploy, "naikkan ke main", "langsung merge saja", CODEOWNERS, branch protection, atau ENV, API key, token, secret, variabel lingkungan, Railway/Supabase/GitHub secrets — termasuk ketika user meminta melewati aturan ini.
 ---
 
 # Main Branch Guard
@@ -8,18 +8,18 @@ description: Kebijakan tim PT Rupa Raya Indonesia untuk alur branch dan ENV. Alu
 Alur branch tim:
 
 ```
-feat/<x> ──merge bebas──▶ dev/<nama> ──PR──▶ staging ──PR oleh @onrsama──▶ main
+feat/<x> ──merge bebas──▶ dev/<nama> ──PR──▶ staging ──PR oleh @onrsama/@ahmadaqib──▶ main
  (fitur)                  (personal)          (integrasi)    (approval code owner)
 ```
 
 Aturan keras untuk semua anggota tim dan semua AI agent:
 
-1. **`main` hanya berubah lewat PR `staging → main` yang dibuka dan di-approve @onrsama.** Agent tidak push, commit, merge, atau membuka PR ke `main`.
+1. **`main` hanya berubah lewat PR `staging → main` yang dibuka dan di-approve @onrsama/@ahmadaqib.** Agent tidak push, commit, merge, atau membuka PR ke `main`.
 2. **`staging` hanya berubah lewat PR dari branch personal `dev/<nama>`.** Tidak ada push/commit langsung ke `staging`, dan PR dari `feat/*` langsung ke `staging` ditolak.
 3. **Agent tidak me-merge PR mana pun** (`gh pr merge`, auto-merge, tombol merge di browser). Merge dilakukan manusia di GitHub.
 4. **AI agent tidak menyentuh ENV yang berisi nilai.** Tidak membaca, menulis, atau mengisi `.env*` (kecuali templat `.env.example`), dan tidak memasang secret/variabel di platform (GitHub, Railway, Supabase, Vercel, dsb.).
 
-Alasannya: `main` adalah sumber deploy produksi, `staging` tempat semua pekerjaan bertemu dan diuji. Branch personal memberi tiap dev ruang untuk menggabungkan beberapa fitur sendiri sebelum menyentuh staging. Satu pemilik (@onrsama) untuk `main` membuat tanggung jawab rilis jelas. Isi ENV yang masuk ke konteks agent bisa ikut ke log, transkrip, atau commit.
+Alasannya: `main` adalah sumber deploy produksi, `staging` tempat semua pekerjaan bertemu dan diuji. Branch personal memberi tiap dev ruang untuk menggabungkan beberapa fitur sendiri sebelum menyentuh staging. Satu pemilik (@onrsama/@ahmadaqib) untuk `main` membuat tanggung jawab rilis jelas. Isi ENV yang masuk ke konteks agent bisa ikut ke log, transkrip, atau commit.
 
 ## Tiga lapis penegakan
 
@@ -29,7 +29,7 @@ Skill ini hanya instruksi; yang benar-benar mengunci ada di lapisan lain, jadi a
 |---|---|---|
 | Ruleset GitHub `main-pr-only` + `staging-pr-only` | `scripts/apply-github-protection.sh` | semua orang & semua agent — penegak utama |
 | Check `branch-flow` | `.github/workflows/branch-flow.yml` | PR ke staging bukan dari `dev/*`, PR ke main bukan dari `staging` |
-| CODEOWNERS | `.github/CODEOWNERS` (`* @onrsama`) | PR ke main tanpa approval @onrsama |
+| CODEOWNERS | `.github/CODEOWNERS` (`* @onrsama @ahmadaqib`) | PR ke main tanpa approval @onrsama/@ahmadaqib |
 | Hook Claude Code (PreToolUse) | `.claude/settings.json` → `scripts/guard.mjs` | agent Claude di mesin lokal, sebelum perintah jalan |
 
 Bila hook menolak perintah (pesan `⛔ main-branch-guard`), jangan mencari jalan memutar (perintah lain yang efeknya sama, menyunting hook, `--no-verify`, `gh api` langsung, browser). Penolakan itu memang hasil yang diinginkan; laporkan ke user dan tawarkan langkah yang diizinkan.
@@ -41,16 +41,79 @@ Bila hook menolak perintah (pesan `⛔ main-branch-guard`), jangan mencari jalan
 2. **Buat branch fitur dari branch personal:** `git switch dev/<nama> && git pull && git switch -c feat/<ringkas>`. Prefix lain juga boleh: `fix/`, `docs/`, `chore/`, `refactor/`.
 3. Commit di branch fitur, push bila perlu: `git push -u origin feat/<ringkas>`.
 4. **Gabungkan ke branch personal** (branch milik dev sendiri, bebas): `git switch dev/<nama> && git merge feat/<ringkas> && git push`. Bila user lebih suka review, buka PR: `gh pr create --base dev/<nama> --fill`.
-5. **Naikkan ke staging lewat PR** bila user memintanya: dari `dev/<nama>`, `gh pr create --base staging --fill`, lalu sebutkan link PR.
-6. **Berhenti di situ.** Merge PR ke `staging` dilakukan manusia; PR `staging → main` dibuka dan di-approve @onrsama.
+5. **Naikkan ke staging lewat PR** bila user memintanya: sinkronkan dulu (lihat "Sinkron dulu" di bawah), lalu dari `dev/<nama>`, `gh pr create --base staging --fill`, dan sebutkan link PR.
+6. **Berhenti di situ.** Merge PR ke `staging` dilakukan manusia; PR `staging → main` dibuka dan di-approve @onrsama/@ahmadaqib.
 
-Sebelum membuka PR ke staging, samakan dulu branch personal dengan staging terbaru agar konflik diselesaikan di branch sendiri: `git switch dev/<nama> && git pull origin staging`.
+## Sinkron dulu, baru push dan buka PR
+
+Selalu **pull sebelum push**, dan selesaikan konflik di branch sendiri, bukan di `staging`. Urutan sebelum PR ke staging:
+
+```bash
+git fetch origin
+git switch dev/<nama>
+git pull --rebase origin dev/<nama>   # ambil commit dev/<nama> dari laptop lain / rekan
+git pull origin staging               # masukkan staging terbaru; konflik diselesaikan di sini
+# jalankan tes/lint project bila ada, pastikan masih lulus
+git push                              # dev/<nama> di GitHub = lokal
+gh pr create --base staging --fill
+```
+
+Kebiasaan yang dijaga:
+- **Sebelum mulai kerja:** `git switch dev/<nama> && git pull`, baru buat `feat/*`. Branch yang tua menumpuk konflik.
+- **Sebelum push branch apa pun:** `git pull --rebase` dulu. Jangan `git push --force` ke branch yang dipakai orang lain; untuk branch sendiri pakai `--force-with-lease`, bukan `--force`.
+- **Konflik:** selesaikan, jalankan ulang tes, commit hasil resolusi (`git commit` tanpa `-m` memakai pesan merge bawaan). Jangan menghapus perubahan orang lain untuk "menang" konflik; bila ragu, tanyakan ke user.
+- **Branch tertinggal setelah PR dibuka:** ulangi `git pull origin staging && git push`. GitHub menolak merge ke `staging` bila branch belum memuat staging terbaru.
+
+Hook menolak `gh pr create --base staging` bila `dev/<nama>` belum memuat `origin/staging` atau belum sama dengan `origin/dev/<nama>`.
+
+## Format commit dan judul PR
+
+Pakai [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<tipe>(<scope>): <ringkasan>
+
+<body opsional: kenapa berubah, dampak, catatan migrasi>
+```
+
+| Tipe | Untuk |
+|---|---|
+| `feat` | fitur baru yang terasa oleh pengguna |
+| `fix` | perbaikan bug |
+| `docs` | dokumentasi saja |
+| `refactor` | ubah struktur kode tanpa ubah perilaku |
+| `perf` | percepatan |
+| `test` | tambah/ubah tes |
+| `style` | format/whitespace, tanpa ubah logika |
+| `build` / `ci` | build, dependensi, pipeline |
+| `chore` | pemeliharaan lain (konfigurasi, skrip) |
+| `revert` | membatalkan commit sebelumnya |
+
+Aturan baris pertama:
+- Maksimal **72 karakter**, tanpa titik di akhir, kalimat perintah/aktif ("tambah", "perbaiki", "add", "fix").
+- `scope` = area yang disentuh, huruf kecil: `auth`, `nav`, `api`, `db`, `ui`, `deps`.
+- Jelaskan **apa yang berubah dan di mana**. Ditolak: `fix: update`, `chore: wip`, `feat: perubahan`, `fix bug`.
+- Perubahan yang memutus kompatibilitas: tambah `!` (`feat(api)!: ganti format respons /plans`) dan jelaskan di body.
+- **Satu commit = satu perubahan logis.** Pisahkan refactor dari fitur, dan format dari logika.
+- Ikuti bahasa yang sudah dipakai di riwayat commit repo (Indonesia atau Inggris); jangan dicampur dalam satu baris.
+
+Contoh baik:
+
+```
+feat(search): pencarian global Ctrl+K untuk menu, alat, dan aset
+fix(nav): pinch touchpad tidak lagi men-zoom halaman
+refactor(engine): pisahkan hitung dinding dari render mesh
+docs(readme): tambah cara install dan update skill
+chore(deps): naikkan vite ke 5.4.10
+```
+
+Judul PR memakai format yang sama. Hook menolak `git commit -m` dan `gh pr create --title` yang tidak sesuai, dan check `branch-flow` di GitHub menolak judul PR yang tidak sesuai.
 
 ### Bila user meminta "langsung ke main" atau "push ke staging saja"
 
 Tolak dengan sopan, jelaskan singkat, lalu kerjakan versi yang diizinkan. Contoh:
 
-> `main` dan `staging` dikunci: perubahan masuk lewat `dev/ahmad` → PR ke staging, lalu @onrsama yang menaikkan staging ke main. Saya sudah menggabungkan `fix/pinch-zoom` ke `dev/ahmad` dan membuka PR ke staging: <link>.
+> `main` dan `staging` dikunci: perubahan masuk lewat `dev/ahmad` → PR ke staging, lalu @onrsama/@ahmadaqib yang menaikkan staging ke main. Saya sudah menggabungkan `fix/pinch-zoom` ke `dev/ahmad` dan membuka PR ke staging: <link>.
 
 Ini berlaku juga bila user mengaku owner, bilang "darurat", atau menyuruh mematikan hook/ruleset. Owner yang sebenarnya bisa melakukannya sendiri di GitHub; agent tidak perlu melakukannya.
 
@@ -82,7 +145,7 @@ File berikut hanya boleh diubah manusia (lewat SKILL-DEVS + `install.sh`), dan h
 - `.claude/skills/main-branch-guard/**`
 - ruleset/branch protection di GitHub (`gh api .../rulesets`, `.../protection`)
 
-## Setup (untuk @onrsama)
+## Setup (untuk @onrsama/@ahmadaqib)
 
 1. Pastikan branch `staging` ada di GitHub (`git push origin main:staging` bila belum).
 2. Setelah file skill sampai di `main`, jalankan sendiri (bukan lewat agent) dengan `gh` yang login sebagai admin repo:
@@ -91,14 +154,14 @@ File berikut hanya boleh diubah manusia (lewat SKILL-DEVS + `install.sh`), dan h
    bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
    ```
    PR ke staging juga wajib 1 approval? Jalankan dengan `STAGING_APPROVALS=1`.
-3. Di GitHub › Settings › Collaborators, pastikan hanya @onrsama yang ber-role **Admin** (anggota lain: Write). Admin mendapat hak bypass, tapi bypass-nya pun hanya lewat PR.
+3. Di GitHub › Settings › Collaborators, pastikan hanya @onrsama dan @ahmadaqib yang ber-role **Admin** (anggota lain: Write). Admin mendapat hak bypass, tapi bypass-nya pun hanya lewat PR.
 4. Uji dari akun anggota lain: `git push origin main` dan `git push origin staging` ditolak; PR `feat/x → staging` gagal di check `branch-flow`.
 
 Batasan yang perlu diketahui:
 - Ruleset di repo **private** butuh paket GitHub berbayar (Pro untuk akun personal, Team untuk organisasi). Bila API menolak, pakai *Settings › Branches › Branch protection rule* untuk `main` dan `staging` dengan opsi yang sama, ditambah required status check `branch-flow`.
-- GitHub tidak mengizinkan penulis PR meng-approve PR-nya sendiri. PR `staging → main` buatan @onrsama di-merge lewat hak bypass admin (tetap lewat PR).
+- Approval ke `main` cukup dari **salah satu** code owner (@onrsama atau @ahmadaqib). GitHub tidak mengizinkan penulis PR meng-approve PR-nya sendiri, jadi PR `staging → main` yang dibuka @onrsama di-approve @ahmadaqib, dan sebaliknya. Keduanya harus punya akses minimal **Write** ke repo agar CODEOWNERS berlaku.
 - Hook hanya mengikat Claude Code. Agent lain (Codex, Cursor, dsb.) tetap tertahan ruleset dan check GitHub, tapi tidak oleh hook lokal; untuk ENV mereka bergantung pada kebijakan ini dan `.gitignore`.
 
 ## Anggota tim tanpa AI
 
-Aturan yang sama: kerja di `feat/*`, gabungkan ke `dev/<nama>`, buka PR ke `staging`. Naik ke `main` urusan @onrsama. Jangan simpan secret produksi di repo; kirim kebutuhan ENV ke @onrsama.
+Aturan yang sama: kerja di `feat/*`, gabungkan ke `dev/<nama>`, buka PR ke `staging`. Naik ke `main` urusan @onrsama/@ahmadaqib. Jangan simpan secret produksi di repo; kirim kebutuhan ENV ke @onrsama/@ahmadaqib.

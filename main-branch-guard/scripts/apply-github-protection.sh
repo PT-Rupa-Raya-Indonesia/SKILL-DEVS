@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# Pasang dua ruleset GitHub di repo ini. Dijalankan oleh admin repo (@onrsama), bukan oleh
+# Pasang dua ruleset GitHub di repo ini. Dijalankan oleh admin repo (@onrsama/@ahmadaqib), bukan oleh
 # AI agent (hook guard.mjs memblokir agent memanggil endpoint rulesets). Aman diulang:
 # ruleset yang sudah ada diperbarui, bukan dobel.
 #
 # Alur yang ditegakkan server GitHub (berlaku untuk manusia DAN agent):
 #
-#   feat/<x> --> dev/<nama> --PR--> staging --PR (approval @onrsama)--> main
+#   feat/<x> --> dev/<nama> --PR--> staging --PR (approval @onrsama/@ahmadaqib)--> main
 #
 #   staging-pr-only
 #     - tidak bisa di-push langsung, di-force-push, atau dihapus
 #     - perubahan wajib lewat PR (jumlah approval: STAGING_APPROVALS, default 0)
-#     - check "branch-flow" wajib lulus => PR ke staging hanya dari dev/<nama>
+#     - check "branch-flow" wajib lulus => PR ke staging hanya dari dev/<nama>, judul PR berformat
+#     - branch wajib up-to-date dengan staging sebelum merge (strict) => pull staging dulu
 #   main-pr-only
 #     - tidak bisa di-push langsung, di-force-push, atau dihapus
-#     - wajib lewat PR yang di-approve code owner (CODEOWNERS: * @onrsama)
+#     - wajib lewat PR yang di-approve code owner (CODEOWNERS: * @onrsama @ahmadaqib)
 #     - check "branch-flow" wajib lulus => PR ke main hanya dari staging
 #   (check berasal dari .github/workflows/branch-flow.yml, dipasang oleh install.sh)
 #   Branch feat/* dan dev/<nama> bebas: tidak dikunci.
@@ -88,7 +89,7 @@ STAGING_BODY=$(cat <<JSON
     },
     { "type": "required_status_checks",
       "parameters": {
-        "strict_required_status_checks_policy": false,
+        "strict_required_status_checks_policy": true,
         "required_status_checks": [ { "context": "branch-flow", "integration_id": 15368 } ]
       }
     }
@@ -122,4 +123,4 @@ apply staging-pr-only "$STAGING_BODY"
 apply main-pr-only "$MAIN_BODY"
 
 echo "Selesai. Cek: https://github.com/$REPO/settings/rules"
-echo "Catatan: pastikan hanya @onrsama yang ber-role Admin; admin lain ikut punya hak bypass-lewat-PR."
+echo "Catatan: pastikan hanya @onrsama dan @ahmadaqib yang ber-role Admin; admin lain ikut punya hak bypass-lewat-PR."
