@@ -1,0 +1,49 @@
+# Dipasang oleh SKILL-DEVS/main-branch-guard. Jangan diubah langsung; ubah di SKILL-DEVS.
+#
+# Alur branch:  feat/<x>  ->  dev/<nama>  --PR-->  staging  --PR @onrsama-->  main
+#
+# Check "branch-flow" wajib lulus (lewat ruleset) sebelum PR bisa di-merge:
+#   PR ke staging  -> sumbernya harus dev/<nama>
+#   PR ke main     -> sumbernya harus staging
+#
+# Sengaja memakai pull_request_target: workflow dijalankan dari versi di branch TUJUAN,
+# jadi PR tidak bisa melemahkan check ini dengan mengubah file workflow di branch-nya.
+# Aman karena job ini tidak checkout dan tidak menjalankan kode dari PR, dan tanpa izin token.
+name: branch-flow
+
+on:
+  pull_request_target:
+    branches: [main, staging]
+    types: [opened, reopened, synchronize, edited]
+
+permissions: {}
+
+jobs:
+  branch-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cek sumber PR
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::error::PR dari fork tidak diterima. Push branch ke repo ini."
+            exit 1
+          fi
+          case "$BASE_REF" in
+            main)
+              if [ "$HEAD_REF" != "staging" ]; then
+                echo "::error::PR ke main hanya dari staging (sekarang: $HEAD_REF)."
+                exit 1
+              fi ;;
+            staging)
+              case "$HEAD_REF" in
+                dev/*) ;;
+                *) echo "::error::PR ke staging hanya dari branch personal dev/<nama> (sekarang: $HEAD_REF). Gabungkan feat/* ke dev/<nama> dulu."
+                   exit 1 ;;
+              esac ;;
+          esac
+          echo "OK: $HEAD_REF -> $BASE_REF"
