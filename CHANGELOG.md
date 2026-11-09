@@ -7,6 +7,17 @@ Aturan versi:
 - **minor** (1.**x**.0) — aturan atau file baru; tim perlu menjalankan ulang `install.sh`
 - **major** (**x**.0.0) — alur kerja berubah; tim perlu membaca catatan ini dulu
 
+## main-branch-guard 1.3.0 — 2026-11-09
+
+- **Approval ke `main` dari @onrsama atau @ahmadaqib.** CODEOWNERS sekarang `* @onrsama @ahmadaqib`; cukup salah satu yang approve, dan keduanya bisa saling approve (penulis PR tidak bisa approve PR sendiri).
+- **Pull dulu, baru push.** Hook menolak `gh pr create --base staging` bila `dev/<nama>` belum memuat `origin/staging` atau belum sama dengan `origin/dev/<nama>`. Ruleset `staging-pr-only` sekarang *strict*: branch wajib up-to-date dengan `staging` sebelum merge.
+- **Format commit.** Hook menolak `git commit -m` (termasuk `-am` dan heredoc) dan `gh pr create --title` yang tidak berformat `<tipe>(<scope>): <ringkasan>`, lebih dari 72 karakter, atau terlalu umum (`fix: update`, `chore: wip`). Check `branch-flow` di GitHub ikut memeriksa judul PR.
+- SKILL.md: bagian "Sinkron dulu, baru push dan buka PR" dan "Format commit dan judul PR"; blok AGENTS.md/CLAUDE.md ikut diperbarui.
+
+**Yang perlu dilakukan:**
+1. Semua dev: `git -C ~/SKILL-DEVS pull`, lalu `bash ~/SKILL-DEVS/install.sh <repo-proyek>`. CODEOWNERS yang **sudah ada** tidak ditimpa: ubah manual menjadi `* @onrsama @ahmadaqib`.
+2. @onrsama/@ahmadaqib: pastikan keduanya punya akses minimal Write (sebaiknya Admin) di tiap repo, lalu jalankan ulang `apply-github-protection.sh` setelah update sampai `main` (mengaktifkan mode strict di `staging`).
+
 ## main-branch-guard 1.2.0 — 2026-11-09
 
 - `install.sh` menulis ringkasan aturan ke **`AGENTS.md`** dan **`CLAUDE.md`** di root repo proyek (dibuat bila belum ada). Blok bertanda `<!-- skill:main-branch-guard start/end -->` diganti saat install ulang; isi lain tidak disentuh. Agent selain Claude (Codex, Cursor, dll.) jadi ikut membaca aturannya.
