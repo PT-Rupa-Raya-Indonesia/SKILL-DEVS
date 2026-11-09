@@ -75,11 +75,11 @@ fi
 
 if [[ "$SKILL" == "main-branch-guard" ]]; then
   if [[ -f "$TARGET/.github/CODEOWNERS" ]]; then
-    echo "• .github/CODEOWNERS sudah ada — tidak ditimpa. Pastikan berisi: * @onrsama"
+    echo "• .github/CODEOWNERS sudah ada — tidak ditimpa. Pastikan berisi: * @onrsama @ahmadaqib"
   else
     mkdir -p "$TARGET/.github"
     cp "$HERE/$SKILL/templates/CODEOWNERS" "$TARGET/.github/CODEOWNERS"
-    echo "✓ .github/CODEOWNERS dibuat (* @onrsama)"
+    echo "✓ .github/CODEOWNERS dibuat (* @onrsama @ahmadaqib)"
   fi
 
   mkdir -p "$TARGET/.github/workflows"
@@ -105,9 +105,9 @@ JS
 
   cat <<EOF
 
-Langkah berikutnya (alur: feat/<x> → dev/<nama> → PR staging → PR @onrsama → main):
+Langkah berikutnya (alur: feat/<x> → dev/<nama> → PR staging → PR @onrsama/@ahmadaqib → main):
   1. Commit perubahan ini di feat/<x>, gabungkan ke dev/<nama>, buka PR dev/<nama> → staging.
-  2. Pemasangan pertama: setelah sampai main, @onrsama menjalankan
+  2. Pemasangan pertama: setelah sampai main, @onrsama/@ahmadaqib menjalankan
        bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh --dry-run
        bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
   3. Buka ulang sesi Claude Code agar hook terbaca.

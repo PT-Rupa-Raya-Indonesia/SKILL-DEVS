@@ -4,12 +4,14 @@ Kumpulan skill Claude Code untuk tim developer PT Rupa Raya Indonesia. Setiap fo
 
 | Skill | Versi | Fungsi |
 |---|---|---|
-| [`main-branch-guard`](main-branch-guard/SKILL.md) | [1.2.0](CHANGELOG.md) | Alur branch `feat/*` → `dev/<nama>` → PR `staging` → PR @onrsama → `main`. AI agent tidak bisa push/commit ke `main`/`staging`, tidak bisa membuka PR ke `main` atau me-merge PR, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
+| [`main-branch-guard`](main-branch-guard/SKILL.md) | [1.3.0](CHANGELOG.md) | Alur branch `feat/*` → `dev/<nama>` → PR `staging` → PR → `main` (approval @onrsama atau @ahmadaqib). Pull/sinkron dulu sebelum push & PR, commit dan judul PR berformat Conventional Commits. AI agent tidak bisa push/commit ke `main`/`staging`, tidak bisa membuka PR ke `main` atau me-merge PR, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
+
+Aturan ini **berlaku umum di semua project dan repo** tim (organisasi maupun repo kolaborasi di akun personal); tidak ada nama repo yang ditulis mati.
 
 ## Alur branch tim
 
 ```
-feat/<x> ──merge bebas──▶ dev/<nama> ──PR──▶ staging ──PR oleh @onrsama──▶ main
+feat/<x> ──merge bebas──▶ dev/<nama> ──PR──▶ staging ──PR oleh @onrsama/@ahmadaqib──▶ main
  (fitur)                  (personal)          (integrasi)    (approval code owner)
 ```
 
@@ -18,7 +20,7 @@ feat/<x> ──merge bebas──▶ dev/<nama> ──PR──▶ staging ──P
 | `feat/<x>`, `fix/<x>` | dev sendiri | commit & push bebas |
 | `dev/<nama>` | pemilik branch | merge `feat/*` bebas (atau lewat PR bila mau review) |
 | `staging` | anggota tim | **hanya PR dari `dev/<nama>`** |
-| `main` | **hanya @onrsama** | **hanya PR dari `staging`**, wajib approval code owner |
+| `main` | **@onrsama atau @ahmadaqib** | **hanya PR dari `staging`**, wajib approval salah satu code owner (penulis PR tidak bisa approve PR sendiri, jadi saling approve) |
 
 Contoh sehari-hari:
 
@@ -28,16 +30,41 @@ git fetch origin
 git switch -c dev/ahmad origin/staging
 git push -u origin dev/ahmad
 
-# tiap fitur
+# tiap fitur: mulai dari dev/<nama> yang terbaru
 git switch dev/ahmad && git pull
 git switch -c feat/login-fix
-# ... kerja, commit ...
-git switch dev/ahmad && git merge feat/login-fix && git push
+# ... kerja ...
+git commit -m "fix(auth): login magic link tidak lagi kedaluwarsa dini"
+git switch dev/ahmad && git pull && git merge feat/login-fix
 
-# naikkan ke staging
-git pull origin staging          # selesaikan konflik di branch sendiri
+# naikkan ke staging: PULL DULU, baru push
+git fetch origin
+git pull origin staging          # konflik diselesaikan di branch sendiri
+# jalankan tes/lint project
+git push
 gh pr create --base staging --fill
 ```
+
+## Format commit & judul PR
+
+[Conventional Commits](https://www.conventionalcommits.org/): `<tipe>(<scope>): <ringkasan>`, maksimal 72 karakter, jelas apa yang berubah dan di mana.
+
+| Tipe | Untuk | Contoh |
+|---|---|---|
+| `feat` | fitur baru | `feat(search): pencarian global Ctrl+K` |
+| `fix` | perbaikan bug | `fix(nav): pinch touchpad tidak lagi men-zoom halaman` |
+| `docs` | dokumentasi | `docs(readme): tambah cara update skill` |
+| `refactor` | struktur kode, perilaku sama | `refactor(engine): pisahkan hitung dinding dari render` |
+| `perf` | percepatan | `perf(assets): penambahan model pertama 574→20 ms` |
+| `test` | tes | `test(walls): kasus sudut T` |
+| `style` | format saja | `style: rapikan indentasi plan.js` |
+| `build` / `ci` | build, dependensi, pipeline | `ci: cek judul PR di branch-flow` |
+| `chore` | pemeliharaan lain | `chore(deps): naikkan vite ke 5.4.10` |
+| `revert` | batalkan commit | `revert: feat(search) pencarian global` |
+
+Ditolak: `update`, `fix bug`, `fix: update`, `chore: wip`, tipe huruf besar, baris pertama > 72 karakter. Perubahan yang memutus kompatibilitas pakai `!`: `feat(api)!: ganti format respons /plans`. Satu commit = satu perubahan logis.
+
+Yang menegakkan: hook Claude Code (`git commit -m`, `gh pr create --title`) dan check `branch-flow` di GitHub (judul PR ke `staging`/`main`).
 
 ## Cara install
 
@@ -64,12 +91,12 @@ Untuk skill lain: `bash ~/SKILL-DEVS/install.sh /path/ke/repo-proyek <nama-skill
 Skrip ini:
 
 1. mengganti isi `repo-proyek/.claude/skills/main-branch-guard/` dengan versi terbaru
-2. membuat `.github/CODEOWNERS` berisi `* @onrsama` (bila belum ada; file lama tidak ditimpa)
+2. membuat `.github/CODEOWNERS` berisi `* @onrsama @ahmadaqib` (bila belum ada; file lama tidak ditimpa)
 3. memasang `.github/workflows/branch-flow.yml` (check yang menolak PR dari branch yang salah)
 4. menambahkan hook `PreToolUse` dan daftar `deny` ke `.claude/settings.json` (isi settings lama tetap ada; aman dijalankan ulang)
 5. menulis ringkasan aturan ke **`AGENTS.md`** dan **`CLAUDE.md`** di root repo (dibuat bila belum ada), supaya agent selain Claude (Codex, Cursor, dll.) juga membaca aturannya. Blok ini diberi penanda `<!-- skill:main-branch-guard start -->` … `end -->` dan diganti otomatis saat install ulang; isi lain di kedua file tidak disentuh.
 
-Skill ini **tidak terikat ke repo atau organisasi tertentu**: bisa dipasang di repo organisasi PT-Rupa-Raya-Indonesia maupun repo kolaborasi di akun personal (mis. milik @onrsama). Nama repo dibaca otomatis dari folder tempat skrip dijalankan. Untuk repo kolaborasi: @onrsama harus punya akses minimal **Write** agar CODEOWNERS berlaku, dan skrip ruleset dijalankan oleh pemilik/admin repo itu.
+Skill ini **tidak terikat ke repo atau organisasi tertentu**: bisa dipasang di repo organisasi PT-Rupa-Raya-Indonesia maupun repo kolaborasi di akun personal (mis. milik @onrsama/@ahmadaqib). Nama repo dibaca otomatis dari folder tempat skrip dijalankan. Untuk repo kolaborasi: @onrsama/@ahmadaqib harus punya akses minimal **Write** agar CODEOWNERS berlaku, dan skrip ruleset dijalankan oleh pemilik/admin repo itu.
 
 <details>
 <summary>Install manual (tanpa skrip)</summary>
@@ -100,7 +127,7 @@ git switch dev/<nama> && git merge chore/main-branch-guard && git push
 gh pr create --base staging --fill
 ```
 
-### 4. Aktifkan penguncian di GitHub (hanya @onrsama)
+### 4. Aktifkan penguncian di GitHub (hanya @onrsama/@ahmadaqib)
 
 Setelah perubahan sampai di `main` (PR `staging → main`), dari repo proyek:
 
@@ -112,9 +139,9 @@ bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
 Ini memasang dua ruleset:
 
 - `staging-pr-only` — `staging` wajib lewat PR, check `branch-flow` wajib lulus (sumber harus `dev/<nama>`), tidak bisa force-push/dihapus. Mau wajib 1 approval juga? Jalankan dengan `STAGING_APPROVALS=1`.
-- `main-pr-only` — `main` wajib lewat PR dari `staging`, wajib approval code owner (@onrsama), tidak bisa force-push/dihapus.
+- `main-pr-only` — `main` wajib lewat PR dari `staging`, wajib approval code owner (@onrsama/@ahmadaqib), tidak bisa force-push/dihapus.
 
-Admin hanya bisa bypass lewat PR. Pastikan hanya @onrsama yang ber-role **Admin** di repo itu. Branch `staging` harus sudah ada di GitHub sebelum skrip dijalankan.
+Admin hanya bisa bypass lewat PR. Pastikan hanya @onrsama dan @ahmadaqib yang ber-role **Admin** di repo itu. Branch `staging` harus sudah ada di GitHub sebelum skrip dijalankan.
 
 > Ruleset di repo **private** butuh paket GitHub berbayar (Pro untuk akun personal, Team untuk organisasi). Bila API menolak, buat *Settings › Branches › Branch protection rule* untuk `main` dan `staging` dengan opsi yang sama, ditambah required status check `branch-flow`.
 
@@ -146,7 +173,7 @@ Cek versi yang terpasang di repo proyek:
 cat /path/ke/repo-proyek/.claude/skills/main-branch-guard/VERSION
 ```
 
-### Untuk @onrsama
+### Untuk @onrsama/@ahmadaqib
 
 Bila CHANGELOG menyebut ruleset berubah, jalankan ulang `apply-github-protection.sh` setelah update sampai di `main`. Skrip memperbarui ruleset yang ada, tidak membuat dobel.
 
@@ -156,7 +183,7 @@ Bila CHANGELOG menyebut ruleset berubah, jalankan ulang `apply-github-protection
 2. Naikkan `<skill>/VERSION`: patch untuk perbaikan kecil, minor untuk aturan/file baru, major bila alur kerja berubah.
 3. Tambah entri di atas CHANGELOG.md: apa yang berubah + **yang perlu dilakukan** tim.
 4. Perbarui baris versi di tabel atas README ini.
-5. Kirim lewat PR ke repo SKILL-DEVS untuk di-review @onrsama.
+5. Kirim lewat PR ke repo SKILL-DEVS untuk di-review @onrsama/@ahmadaqib.
 
 Hook memblokir AI agent menyunting file penjaga (`CODEOWNERS`, `branch-flow.yml`, `.claude/settings.json`, folder skill) di repo proyek, jadi perubahan skill selalu lewat repo ini.
 
@@ -166,7 +193,7 @@ Hook memblokir AI agent menyunting file penjaga (`CODEOWNERS`, `branch-flow.yml`
 |---|---|
 | Ruleset GitHub `main-pr-only` + `staging-pr-only` | semua orang & semua agent (penegak utama) |
 | Check `branch-flow` | PR ke `staging` bukan dari `dev/*`, PR ke `main` bukan dari `staging` |
-| `.github/CODEOWNERS` → `* @onrsama` | merge ke `main` tanpa approval @onrsama |
+| `.github/CODEOWNERS` → `* @onrsama @ahmadaqib` | merge ke `main` tanpa approval @onrsama/@ahmadaqib |
 | Hook Claude Code (`guard.mjs`) | agent Claude di laptop, sebelum perintah dijalankan |
 
 Hook hanya mengikat Claude Code. Agent lain (Codex, Cursor, dsb.) tetap tertahan ruleset dan check GitHub.
