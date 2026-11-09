@@ -9,6 +9,10 @@
 #   3. (main-branch-guard) pasang .github/workflows/branch-flow.yml (selalu versi terbaru)
 #   4. (main-branch-guard) gabungkan hook + deny ke <repo>/.claude/settings.json
 #      tanpa menghapus isi settings yang sudah ada
+#   5. bila skill punya templates/agents-block.md: tulis blok aturannya ke AGENTS.md dan
+#      CLAUDE.md di root repo (dibuat bila belum ada). Blok diberi penanda
+#      <!-- skill:<nama> start --> … <!-- skill:<nama> end --> dan diganti saat install ulang;
+#      isi lain di file itu tidak disentuh.
 # Aman dijalankan ulang. Jalankan oleh manusia, bukan AI agent.
 set -euo pipefail
 
@@ -36,6 +40,37 @@ if [[ "$OLD_VER" == "$NEW_VER" ]]; then
   echo "✓ skill $SKILL v$NEW_VER disalin ulang (versi sama)"
 else
   echo "✓ skill $SKILL: $OLD_VER → v$NEW_VER (lihat CHANGELOG.md di SKILL-DEVS)"
+fi
+
+BLOCK="$HERE/$SKILL/templates/agents-block.md"
+if [[ -f "$BLOCK" ]]; then
+  for DOC in AGENTS.md CLAUDE.md; do
+    node - "$BLOCK" "$TARGET/$DOC" "$SKILL" "$NEW_VER" <<'JS'
+const fs = require('fs');
+const [blockPath, docPath, skill, ver] = process.argv.slice(2);
+const start = `<!-- skill:${skill} start -->`;
+const end = `<!-- skill:${skill} end -->`;
+const body = fs.readFileSync(blockPath, 'utf8').trim();
+const block = `${start}\n<!-- Dikelola SKILL-DEVS/install.sh (v${ver}). Jangan diubah di sini; ubah di SKILL-DEVS lalu install ulang. -->\n${body}\n${end}`;
+const name = require('path').basename(docPath);
+let doc = fs.existsSync(docPath) ? fs.readFileSync(docPath, 'utf8') : '';
+const i = doc.indexOf(start);
+const j = doc.indexOf(end);
+let action;
+if (i !== -1 && j > i) {
+  doc = doc.slice(0, i) + block + doc.slice(j + end.length);
+  action = 'diperbarui';
+} else if (doc) {
+  doc = doc.replace(/\s*$/, '\n\n') + block + '\n';
+  action = 'ditambahkan';
+} else {
+  doc = block + '\n';
+  action = 'dibuat';
+}
+fs.writeFileSync(docPath, doc);
+console.log(`✓ blok aturan ${skill} ${action} di ${name}`);
+JS
+  done
 fi
 
 if [[ "$SKILL" == "main-branch-guard" ]]; then
