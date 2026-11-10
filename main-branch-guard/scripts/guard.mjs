@@ -122,6 +122,45 @@ function tokens(seg) {
   return (seg.match(/"[^"]*"|'[^']*'|\S+/g) || []).map((t) => t.replace(/^['"]|['"]$/g, ''));
 }
 
+const OWNER_SCRIPTS = /\b(uninstall\.sh|install\.sh|apply-github-protection\.sh|remove-github-protection\.sh)\b/;
+const DRY_RUN_OK = new Set(['apply-github-protection.sh', 'remove-github-protection.sh']); // yang punya --dry-run
+const READ_ONLY_CMDS = new Set(['cat', 'less', 'more', 'head', 'tail', 'grep', 'rg', 'wc', 'ls', 'stat', 'file', 'diff', 'git', 'shellcheck']);
+const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
+
+function checkOwnerScripts(cmd) {
+  const m = cmd.match(OWNER_SCRIPTS);
+  if (!m) return;
+  const deny = (name) =>
+    block(`"${name}" dijalankan manusia, bukan agent. Minta user (owner: ${OWNER}) menjalankannya sendiri.`);
+  const segs = segments(cmd);
+  // `... | bash`, `bash -s`, `bash <<EOF`: shell yang membaca dari stdin bersama nama skrip di perintah.
+  for (const seg of segs) {
+    const t = tokens(seg);
+    if (SHELLS.has(path.basename(t[0] || '')) && (t.length === 1 || t.slice(1).every((x) => x.startsWith('-') || x.startsWith('<')))) {
+      deny(m[1]);
+    }
+  }
+  for (const seg of segs) {
+    const sm = seg.match(OWNER_SCRIPTS);
+    if (!sm) continue;
+    const name = sm[1];
+    const t = tokens(seg);
+    const head = path.basename(t[0] || '');
+    if (/^(sed|perl)$/.test(head) && !t.some((x) => /^-[a-zA-Z]*i/.test(x))) continue; // sed tanpa -i = baca
+    if (READ_ONLY_CMDS.has(head) && !t.some((x) => /^[<>]/.test(x))) continue;
+    if (SHELLS.has(head)) {
+      // bash -n <skrip> = cek sintaks saja; opsi harus sebelum nama skrip, di pemanggilan yang sama
+      const k = t.findIndex((x) => OWNER_SCRIPTS.test(x));
+      const opts = t.slice(1, k);
+      if (k > 0 && opts.length && opts.every((x) => x.startsWith('-')) && opts.some((x) => /^-[a-zA-Z]*n[a-zA-Z]*$/.test(x))) continue;
+    }
+    // --dry-run hanya sah sebagai argumen skrip yang memang mendukungnya, di segmen yang sama
+    const k = t.findIndex((x) => OWNER_SCRIPTS.test(x));
+    if (DRY_RUN_OK.has(name) && k !== -1 && t.slice(k + 1).includes('--dry-run')) continue;
+    deny(name);
+  }
+}
+
 function checkBash(cmd, cwd) {
   // --- ENV: file berisi nilai ---
   const envRefs = cmd.match(/(?:^|[\s"'=/<>:])(\.env(?:\.[A-Za-z0-9_-]+)*)(?=$|[\s"';|&)>])/g) || [];
@@ -152,14 +191,8 @@ function checkBash(cmd, cwd) {
     if (!readOnly || /\/merges\b|\/pulls\/\d+\/merge/.test(cmd)) block('gh api tidak boleh mengubah ruleset/branch protection atau melakukan merge.');
   }
   // Skrip pasang/cabut skill & ruleset hanya dijalankan manusia (owner), bukan agent.
-  const ownerScript = cmd.match(
-    /(?:^|[;&|(\s])(?:bash|sh|zsh|source|\.)\s+(?:-\S+\s+)*\S*?((?:un)?install\.sh|apply-github-protection\.sh|remove-github-protection\.sh)\b|(?:^|[;&|(\s])\S*\/((?:un)?install\.sh|apply-github-protection\.sh|remove-github-protection\.sh)\b(?!\S)/,
-  );
-  if (ownerScript) ownerScript[1] = ownerScript[1] || ownerScript[2];
-  // --dry-run dan `bash -n` (cek sintaks) tidak mengubah apa pun, jadi boleh.
-  if (ownerScript && !/--dry-run\b/.test(cmd) && !/\b(bash|sh|zsh)\s+-n\s/.test(cmd)) {
-    block(`"${ownerScript[1]}" dijalankan manusia, bukan agent. Minta user (owner: ${OWNER}) menjalankannya sendiri.`);
-  }
+  // Diperiksa per segmen perintah; default-nya tolak, kecuali segmen itu jelas hanya membaca.
+  checkOwnerScripts(cmd);
   for (const g of GUARD_FILES) {
     const needle = g.replace(/\/$/, '');
     if (cmd.includes(needle) && /(>|\bsed\s+-i|\btee\b|\brm\b|\bmv\b|\bcp\b|\bperl\s+-pi|\bgit\s+(rm|mv|checkout|restore))/.test(cmd)) {
