@@ -7,6 +7,17 @@ Aturan versi:
 - **minor** (1.**x**.0) — aturan atau file baru; tim perlu menjalankan ulang `install.sh`
 - **major** (**x**.0.0) — alur kerja berubah; tim perlu membaca catatan ini dulu
 
+## main-branch-guard 1.4.0 — 2026-11-10
+
+- **Uninstall.** `uninstall.sh <repo> [--github] [--yes]` mencabut semua yang dipasang `install.sh`. Pengaturan, dokumen, dan CODEOWNERS yang diubah manual tidak disentuh. `scripts/remove-github-protection.sh` mencabut ruleset `main-pr-only`/`staging-pr-only`.
+- **Tanpa single point of failure.** Daftar owner pindah ke satu file `main-branch-guard/OWNERS` (@onrsama, @ahmadaqib). Pasang dan cabut ruleset boleh dijalankan **salah satu** owner yang ber-role Admin; skrip menolak login di luar `OWNERS`. Skrip pasang juga memperingatkan bila baru satu owner yang Admin.
+- `install.sh` membuat CODEOWNERS dari `OWNERS`. Bila CODEOWNERS sudah ada, skrip memberi tahu owner yang belum tercantum. `templates/CODEOWNERS` tidak dipakai lagi.
+- Hook menolak agent menjalankan `install.sh`, `uninstall.sh`, `apply-github-protection.sh`, dan `remove-github-protection.sh` (kecuali `--dry-run` / `bash -n`).
+
+**Yang perlu dilakukan:**
+1. @onrsama dan @ahmadaqib: pastikan keduanya Admin di setiap repo yang memakai skill ini.
+2. Semua dev: `git -C ~/SKILL-DEVS pull`, lalu `bash ~/SKILL-DEVS/install.sh <repo-proyek>`, dan commit lewat alur biasa. Ruleset tidak berubah.
+
 ## main-branch-guard 1.3.0 — 2026-11-09
 
 - **Approval ke `main` dari @onrsama atau @ahmadaqib.** CODEOWNERS sekarang `* @onrsama @ahmadaqib`; cukup salah satu yang approve, dan keduanya bisa saling approve (penulis PR tidak bisa approve PR sendiri).

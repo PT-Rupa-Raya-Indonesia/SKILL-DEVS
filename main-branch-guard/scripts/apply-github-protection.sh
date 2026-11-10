@@ -24,6 +24,7 @@
 #   bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh [owner/repo] [--dry-run]
 #   STAGING_APPROVALS=1 bash ...   # bila PR ke staging juga wajib 1 approval
 set -euo pipefail
+source "$(dirname "$0")/owners.sh"
 
 REPO=""
 DRY=""
@@ -102,6 +103,8 @@ if [[ -n "$DRY" ]]; then
   echo "Repo: $REPO"; echo "$STAGING_BODY"; echo "$MAIN_BODY"; exit 0
 fi
 
+require_owner "$REPO"
+
 if ! gh api "repos/$REPO/branches/staging" >/dev/null 2>&1; then
   echo "Branch staging belum ada di $REPO. Buat dulu dari main:"
   echo "  git push origin main:staging"
@@ -123,4 +126,14 @@ apply staging-pr-only "$STAGING_BODY"
 apply main-pr-only "$MAIN_BODY"
 
 echo "Selesai. Cek: https://github.com/$REPO/settings/rules"
-echo "Catatan: pastikan hanya @onrsama dan @ahmadaqib yang ber-role Admin; admin lain ikut punya hak bypass-lewat-PR."
+echo "Catatan: pastikan $(owners_pretty | sed 's/ atau / dan /g') ber-role Admin (minimal dua, agar tidak ada single point of failure);"
+echo "         admin lain di luar daftar OWNERS ikut punya hak bypass-lewat-PR."
+# Peringatan bila admin repo hanya satu orang.
+ADMINS="$(gh api "repos/$REPO/collaborators?permission=admin&per_page=100" -q '.[].login' 2>/dev/null || true)"
+N_OWNER_ADMIN=0
+while read -r o; do
+  [[ -n "$o" ]] && grep -qix "$o" <<<"$ADMINS" && N_OWNER_ADMIN=$((N_OWNER_ADMIN + 1))
+done < <(owners_list)
+if (( N_OWNER_ADMIN < 2 )); then
+  echo "⚠ Baru $N_OWNER_ADMIN owner yang ber-role Admin di $REPO. Tambahkan owner lain sebagai Admin agar pasang/cabut ruleset tidak bergantung pada satu orang."
+fi

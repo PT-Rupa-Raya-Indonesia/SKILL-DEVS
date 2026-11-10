@@ -4,7 +4,7 @@ Kumpulan skill Claude Code untuk tim developer PT Rupa Raya Indonesia. Setiap fo
 
 | Skill | Versi | Fungsi |
 |---|---|---|
-| [`main-branch-guard`](main-branch-guard/SKILL.md) | [1.3.0](CHANGELOG.md) | Alur branch `feat/*` → `dev/<nama>` → PR `staging` → PR → `main` (approval @onrsama atau @ahmadaqib). Pull/sinkron dulu sebelum push & PR, commit dan judul PR berformat Conventional Commits. AI agent tidak bisa push/commit ke `main`/`staging`, tidak bisa membuka PR ke `main` atau me-merge PR, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
+| [`main-branch-guard`](main-branch-guard/SKILL.md) | [1.4.0](CHANGELOG.md) | Alur branch `feat/*` → `dev/<nama>` → PR `staging` → PR → `main` (approval @onrsama atau @ahmadaqib). Pull/sinkron dulu sebelum push & PR, commit dan judul PR berformat Conventional Commits. AI agent tidak bisa push/commit ke `main`/`staging`, tidak bisa membuka PR ke `main` atau me-merge PR, dan tidak bisa membaca/mengisi ENV (`.env*`, secret GitHub/Railway/Supabase/Vercel, …). |
 
 Aturan ini **berlaku umum di semua project dan repo** tim (organisasi maupun repo kolaborasi di akun personal); tidak ada nama repo yang ditulis mati.
 
@@ -127,9 +127,9 @@ git switch dev/<nama> && git merge chore/main-branch-guard && git push
 gh pr create --base staging --fill
 ```
 
-### 4. Aktifkan penguncian di GitHub (hanya @onrsama/@ahmadaqib)
+### 4. Aktifkan penguncian di GitHub (salah satu owner: @onrsama atau @ahmadaqib)
 
-Setelah perubahan sampai di `main` (PR `staging → main`), dari repo proyek:
+Setelah perubahan sampai di `main` (PR `staging → main`), **salah satu** owner menjalankan dari repo proyek. Skrip memeriksa bahwa login `gh` ada di [`OWNERS`](main-branch-guard/OWNERS) dan ber-role Admin di repo itu:
 
 ```bash
 bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh --dry-run
@@ -141,7 +141,7 @@ Ini memasang dua ruleset:
 - `staging-pr-only` — `staging` wajib lewat PR, check `branch-flow` wajib lulus (sumber harus `dev/<nama>`), tidak bisa force-push/dihapus. Mau wajib 1 approval juga? Jalankan dengan `STAGING_APPROVALS=1`.
 - `main-pr-only` — `main` wajib lewat PR dari `staging`, wajib approval code owner (@onrsama/@ahmadaqib), tidak bisa force-push/dihapus.
 
-Admin hanya bisa bypass lewat PR. Pastikan hanya @onrsama dan @ahmadaqib yang ber-role **Admin** di repo itu. Branch `staging` harus sudah ada di GitHub sebelum skrip dijalankan.
+Admin hanya bisa bypass lewat PR. **Jadikan @onrsama dan @ahmadaqib sama-sama Admin** di tiap repo, supaya pasang, cabut, dan approval tidak bergantung pada satu orang. Skrip memberi peringatan bila baru satu owner yang Admin. Branch `staging` harus sudah ada di GitHub sebelum skrip dijalankan.
 
 > Ruleset di repo **private** butuh paket GitHub berbayar (Pro untuk akun personal, Team untuk organisasi). Bila API menolak, buat *Settings › Branches › Branch protection rule* untuk `main` dan `staging` dengan opsi yang sama, ditambah required status check `branch-flow`.
 
@@ -152,6 +152,45 @@ Hook dibaca saat sesi dimulai. Tutup lalu buka lagi sesi Claude Code di repo pro
 ### Cek pemasangan
 
 Di sesi Claude Code repo proyek, minta: *"push langsung ke staging"*, *"buka PR ke main"*, atau *"isi .env dengan API key ini"*. Semuanya harus ditolak dengan pesan `⛔ main-branch-guard`.
+
+## Owner (tanpa single point of failure)
+
+Daftar owner ada di satu file: [`main-branch-guard/OWNERS`](main-branch-guard/OWNERS) (saat ini **@onrsama** dan **@ahmadaqib**). Dari file itu:
+
+| Hal | Siapa yang bisa |
+|---|---|
+| Approve PR `staging → main` | salah satu owner (CODEOWNERS dibuat dari `OWNERS`) |
+| Pasang / perbarui ruleset (`apply-github-protection.sh`) | salah satu owner yang Admin di repo itu |
+| Cabut ruleset (`remove-github-protection.sh`, `uninstall.sh --github`) | salah satu owner yang Admin di repo itu |
+| Approve PR yang mencabut skill dari repo proyek | salah satu owner |
+
+Kalau satu owner berhalangan, owner lain bisa melakukan semuanya sendiri. Menambah atau mengganti owner: ubah `OWNERS` lewat PR ke SKILL-DEVS, lalu jalankan ulang `install.sh` di tiap repo. CODEOWNERS yang sudah ada tidak ditimpa; `install.sh` memberi tahu owner yang belum tercantum.
+
+## Uninstall (mencabut skill dari repo proyek)
+
+Dilakukan manusia, bukan AI agent (hook memblokir agent menjalankan skrip ini). Urutan yang aman:
+
+```bash
+# 1. cabut file skill di branch fitur
+cd /path/ke/repo-proyek
+git switch dev/<nama> && git pull && git switch -c chore/cabut-main-branch-guard
+bash ~/SKILL-DEVS/uninstall.sh .            # tanya konfirmasi; --yes untuk lewati
+git add -A && git commit -m "chore(guard): cabut skill main-branch-guard"
+git switch dev/<nama> && git pull origin staging && git merge chore/cabut-main-branch-guard && git push
+gh pr create --base staging --fill          # lalu PR staging → main, approve salah satu owner
+
+# 2. segera setelah PR itu sampai di main: cabut ruleset (salah satu owner yang Admin)
+bash ~/SKILL-DEVS/main-branch-guard/scripts/remove-github-protection.sh <owner/repo> --dry-run
+bash ~/SKILL-DEVS/main-branch-guard/scripts/remove-github-protection.sh <owner/repo>
+```
+
+`uninstall.sh` hanya menghapus yang dipasang `install.sh`:
+- folder `.claude/skills/main-branch-guard/`
+- blok bertanda di `AGENTS.md`/`CLAUDE.md`; file dihapus bila hanya berisi blok itu
+- hook dan `deny` bawaan di `.claude/settings.json`; pengaturan lain tetap ada
+- `branch-flow.yml` dan `CODEOWNERS`, hanya bila isinya masih buatan SKILL-DEVS; yang sudah diubah manual dibiarkan dan diberi tahu
+
+Kenapa ruleset dicabut **setelah** PR sampai `main`: selama ruleset aktif, PR ke `staging` mewajibkan check `branch-flow`. Setelah workflow-nya hilang dari `staging`, check itu tidak lagi berjalan, sehingga PR berikutnya tertahan sampai ruleset dicabut. Untuk mencabut semuanya sekaligus tanpa PR, salah satu owner bisa menjalankan `bash ~/SKILL-DEVS/uninstall.sh <repo> --github`. Perintah ini mencabut ruleset lebih dulu, lalu menghapus file.
 
 ## Saat ada update skill
 

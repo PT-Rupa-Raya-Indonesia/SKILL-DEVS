@@ -151,6 +151,15 @@ function checkBash(cmd, cwd) {
     const readOnly = !/(-X|--method)\s*(PUT|POST|PATCH|DELETE)/i.test(cmd) && !/\s-(f|F)\s|--field|--raw-field|--input/.test(cmd);
     if (!readOnly || /\/merges\b|\/pulls\/\d+\/merge/.test(cmd)) block('gh api tidak boleh mengubah ruleset/branch protection atau melakukan merge.');
   }
+  // Skrip pasang/cabut skill & ruleset hanya dijalankan manusia (owner), bukan agent.
+  const ownerScript = cmd.match(
+    /(?:^|[;&|(\s])(?:bash|sh|zsh|source|\.)\s+(?:-\S+\s+)*\S*?((?:un)?install\.sh|apply-github-protection\.sh|remove-github-protection\.sh)\b|(?:^|[;&|(\s])\S*\/((?:un)?install\.sh|apply-github-protection\.sh|remove-github-protection\.sh)\b(?!\S)/,
+  );
+  if (ownerScript) ownerScript[1] = ownerScript[1] || ownerScript[2];
+  // --dry-run dan `bash -n` (cek sintaks) tidak mengubah apa pun, jadi boleh.
+  if (ownerScript && !/--dry-run\b/.test(cmd) && !/\b(bash|sh|zsh)\s+-n\s/.test(cmd)) {
+    block(`"${ownerScript[1]}" dijalankan manusia, bukan agent. Minta user (owner: ${OWNER}) menjalankannya sendiri.`);
+  }
   for (const g of GUARD_FILES) {
     const needle = g.replace(/\/$/, '');
     if (cmd.includes(needle) && /(>|\bsed\s+-i|\btee\b|\brm\b|\bmv\b|\bcp\b|\bperl\s+-pi|\bgit\s+(rm|mv|checkout|restore))/.test(cmd)) {
