@@ -124,7 +124,8 @@ function tokens(seg) {
 
 const OWNER_SCRIPTS = /\b(uninstall\.sh|install\.sh|apply-github-protection\.sh|remove-github-protection\.sh)\b/;
 const DRY_RUN_OK = new Set(['apply-github-protection.sh', 'remove-github-protection.sh']); // yang punya --dry-run
-const READ_ONLY_CMDS = new Set(['cat', 'less', 'more', 'head', 'tail', 'grep', 'rg', 'wc', 'ls', 'stat', 'file', 'diff', 'git', 'shellcheck']);
+// Hanya perintah yang tidak bisa menjalankan kode lain (tanpa git/sed/perl/awk: punya fitur eksekusi).
+const READ_ONLY_CMDS = new Set(['cat', 'less', 'more', 'head', 'tail', 'grep', 'rg', 'wc', 'ls', 'stat', 'file', 'diff', 'shellcheck']);
 const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
 
 function checkOwnerScripts(cmd) {
@@ -132,6 +133,8 @@ function checkOwnerScripts(cmd) {
   if (!m) return;
   const deny = (name) =>
     block(`"${name}" dijalankan manusia, bukan agent. Minta user (owner: ${OWNER}) menjalankannya sendiri.`);
+  // Substitusi/subshell/background tidak bisa dipecah dengan andal: tolak bila ada nama skrip.
+  if (/\$\(|`|<\(|>\(|\(|&(?!&)/.test(cmd.replace(/&&/g, ''))) deny(m[1]);
   const segs = segments(cmd);
   // `... | bash`, `bash -s`, `bash <<EOF`: shell yang membaca dari stdin bersama nama skrip di perintah.
   for (const seg of segs) {
@@ -146,17 +149,20 @@ function checkOwnerScripts(cmd) {
     const name = sm[1];
     const t = tokens(seg);
     const head = path.basename(t[0] || '');
-    if (/^(sed|perl)$/.test(head) && !t.some((x) => /^-[a-zA-Z]*i/.test(x))) continue; // sed tanpa -i = baca
-    if (READ_ONLY_CMDS.has(head) && !t.some((x) => /^[<>]/.test(x))) continue;
-    if (SHELLS.has(head)) {
-      // bash -n <skrip> = cek sintaks saja; opsi harus sebelum nama skrip, di pemanggilan yang sama
-      const k = t.findIndex((x) => OWNER_SCRIPTS.test(x));
-      const opts = t.slice(1, k);
-      if (k > 0 && opts.length && opts.every((x) => x.startsWith('-')) && opts.some((x) => /^-[a-zA-Z]*n[a-zA-Z]*$/.test(x))) continue;
-    }
-    // --dry-run hanya sah sebagai argumen skrip yang memang mendukungnya, di segmen yang sama
-    const k = t.findIndex((x) => OWNER_SCRIPTS.test(x));
-    if (DRY_RUN_OK.has(name) && k !== -1 && t.slice(k + 1).includes('--dry-run')) continue;
+    if (READ_ONLY_CMDS.has(head) && !t.some((x) => /[<>]/.test(x))) continue;
+    // Hanya bentuk persis `bash -n <skrip>` / `sh -n <skrip>` (cek sintaks, tanpa opsi lain).
+    if ((head === 'bash' || head === 'sh') && t.length === 3 && t[1] === '-n' && OWNER_SCRIPTS.test(t[2])) continue;
+    // --dry-run hanya untuk skrip yang mendukungnya, dalam bentuk persis:
+    //   [bash|sh] <path/skrip> [owner/repo] --dry-run
+    const s = SHELLS.has(head) ? t.slice(1) : t;
+    if (
+      DRY_RUN_OK.has(name) &&
+      OWNER_SCRIPTS.test(s[0] || '') &&
+      s[s.length - 1] === '--dry-run' &&
+      s.length <= 3 &&
+      s.slice(1, -1).every((x) => /^[\w.-]+\/[\w.-]+$/.test(x)) &&
+      !/[<>]/.test(seg)
+    ) continue;
     deny(name);
   }
 }
