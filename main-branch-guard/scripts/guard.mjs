@@ -124,47 +124,42 @@ function tokens(seg) {
 
 const OWNER_SCRIPTS = /\b(uninstall\.sh|install\.sh|apply-github-protection\.sh|remove-github-protection\.sh)\b/;
 const DRY_RUN_OK = new Set(['apply-github-protection.sh', 'remove-github-protection.sh']); // yang punya --dry-run
-// Hanya perintah yang tidak bisa menjalankan kode lain (tanpa git/sed/perl/awk: punya fitur eksekusi).
-const READ_ONLY_CMDS = new Set(['cat', 'less', 'more', 'head', 'tail', 'grep', 'rg', 'wc', 'ls', 'stat', 'file', 'diff', 'shellcheck']);
-const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
+// Pembaca murni: tidak punya opsi yang menjalankan program lain (rg --pre, sed e, perl -e,
+// git alias, awk system(), less !cmd lewat LESSOPEN tidak termasuk di sini).
+const READ_ONLY_CMDS = new Set(['cat', 'head', 'tail', 'wc', 'stat', 'file']);
+const PLAIN_TOKEN = /^[\w./~@:+,=-]+$/; // path / opsi polos, tanpa metakarakter shell
 
+// Bila nama skrip pasang/cabut muncul di perintah, yang diizinkan hanya SATU perintah tunggal
+// (tanpa |, ;, &, &&, ||, baris baru, $(), backtick, kurung, redirect) dalam salah satu bentuk:
+//   <cat|head|tail|wc|stat|file> [opsi/path polos …]
+//   bash -n <path/skrip>  atau  sh -n <path/skrip>
+//   [bash|sh] <path/apply-|remove-github-protection.sh> [owner/repo] --dry-run
+// Selain itu ditolak. Agent yang ingin membaca skrip memakai tool Read.
 function checkOwnerScripts(cmd) {
   const m = cmd.match(OWNER_SCRIPTS);
   if (!m) return;
-  const deny = (name) =>
-    block(`"${name}" dijalankan manusia, bukan agent. Minta user (owner: ${OWNER}) menjalankannya sendiri.`);
-  // Substitusi/subshell/background tidak bisa dipecah dengan andal: tolak bila ada nama skrip.
-  if (/\$\(|`|<\(|>\(|\(|&(?!&)/.test(cmd.replace(/&&/g, ''))) deny(m[1]);
-  const segs = segments(cmd);
-  // `... | bash`, `bash -s`, `bash <<EOF`: shell yang membaca dari stdin bersama nama skrip di perintah.
-  for (const seg of segs) {
-    const t = tokens(seg);
-    if (SHELLS.has(path.basename(t[0] || '')) && (t.length === 1 || t.slice(1).every((x) => x.startsWith('-') || x.startsWith('<')))) {
-      deny(m[1]);
-    }
-  }
-  for (const seg of segs) {
-    const sm = seg.match(OWNER_SCRIPTS);
-    if (!sm) continue;
-    const name = sm[1];
-    const t = tokens(seg);
-    const head = path.basename(t[0] || '');
-    if (READ_ONLY_CMDS.has(head) && !t.some((x) => /[<>]/.test(x))) continue;
-    // Hanya bentuk persis `bash -n <skrip>` / `sh -n <skrip>` (cek sintaks, tanpa opsi lain).
-    if ((head === 'bash' || head === 'sh') && t.length === 3 && t[1] === '-n' && OWNER_SCRIPTS.test(t[2])) continue;
-    // --dry-run hanya untuk skrip yang mendukungnya, dalam bentuk persis:
-    //   [bash|sh] <path/skrip> [owner/repo] --dry-run
-    const s = SHELLS.has(head) ? t.slice(1) : t;
-    if (
-      DRY_RUN_OK.has(name) &&
-      OWNER_SCRIPTS.test(s[0] || '') &&
-      s[s.length - 1] === '--dry-run' &&
-      s.length <= 3 &&
-      s.slice(1, -1).every((x) => /^[\w.-]+\/[\w.-]+$/.test(x)) &&
-      !/[<>]/.test(seg)
-    ) continue;
-    deny(name);
-  }
+  const deny = () =>
+    block(`"${m[1]}" dijalankan manusia, bukan agent. Minta user (owner: ${OWNER}) menjalankannya sendiri.`);
+  const c = cmd.trim();
+  if (/[|;&\n`$()<>\\{}*?!]/.test(c)) deny();
+  const t = c.split(/\s+/);
+  if (!t.every((x) => PLAIN_TOKEN.test(x))) deny();
+  const head = t[0];
+  if (READ_ONLY_CMDS.has(head)) return;
+  const isScript = (x, names) => {
+    const b = path.basename(x);
+    return names.includes(b) && !x.split('/').includes('..');
+  };
+  if ((head === 'bash' || head === 'sh') && t.length === 3 && t[1] === '-n' && isScript(t[2], [m[1]])) return;
+  const s = head === 'bash' || head === 'sh' ? t.slice(1) : t;
+  if (
+    s.length >= 2 &&
+    s.length <= 3 &&
+    isScript(s[0], [...DRY_RUN_OK]) &&
+    s[s.length - 1] === '--dry-run' &&
+    s.slice(1, -1).every((x) => /^[\w.-]+\/[\w.-]+$/.test(x))
+  ) return;
+  deny();
 }
 
 function checkBash(cmd, cwd) {
