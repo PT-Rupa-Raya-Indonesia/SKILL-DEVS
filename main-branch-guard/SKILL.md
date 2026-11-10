@@ -145,7 +145,13 @@ File berikut hanya boleh diubah manusia (lewat SKILL-DEVS + `install.sh`), dan h
 - `.claude/skills/main-branch-guard/**`
 - ruleset/branch protection di GitHub (`gh api .../rulesets`, `.../protection`)
 
-## Setup (untuk @onrsama/@ahmadaqib)
+Agent juga tidak menjalankan `install.sh`, `uninstall.sh`, `apply-github-protection.sh`, atau `remove-github-protection.sh` (hook memblokirnya, kecuali `--dry-run`). Bila user meminta memasang atau mencabut skill, tunjukkan perintahnya dan biarkan user, salah satu owner di `OWNERS`, yang menjalankannya.
+
+## Owner
+
+Daftar owner ada di `OWNERS` (satu login per baris; saat ini @onrsama dan @ahmadaqib). **Salah satu** owner cukup untuk approve PR ke `main`, memasang ruleset, atau mencabut ruleset/skill. Dengan begitu tidak ada single point of failure. Keduanya sebaiknya ber-role Admin di setiap repo.
+
+## Setup (untuk salah satu owner: @onrsama atau @ahmadaqib)
 
 1. Pastikan branch `staging` ada di GitHub (`git push origin main:staging` bila belum).
 2. Setelah file skill sampai di `main`, jalankan sendiri (bukan lewat agent) dengan `gh` yang login sebagai admin repo:
@@ -154,13 +160,19 @@ File berikut hanya boleh diubah manusia (lewat SKILL-DEVS + `install.sh`), dan h
    bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
    ```
    PR ke staging juga wajib 1 approval? Jalankan dengan `STAGING_APPROVALS=1`.
-3. Di GitHub › Settings › Collaborators, pastikan hanya @onrsama dan @ahmadaqib yang ber-role **Admin** (anggota lain: Write). Admin mendapat hak bypass, tapi bypass-nya pun hanya lewat PR.
+3. Di GitHub › Settings › Collaborators, jadikan **@onrsama dan @ahmadaqib sama-sama Admin** (anggota lain: Write). Admin mendapat hak bypass, tapi bypass-nya pun hanya lewat PR. Skrip menolak dijalankan oleh login di luar `OWNERS` atau yang bukan Admin.
 4. Uji dari akun anggota lain: `git push origin main` dan `git push origin staging` ditolak; PR `feat/x → staging` gagal di check `branch-flow`.
 
 Batasan yang perlu diketahui:
 - Ruleset di repo **private** butuh paket GitHub berbayar (Pro untuk akun personal, Team untuk organisasi). Bila API menolak, pakai *Settings › Branches › Branch protection rule* untuk `main` dan `staging` dengan opsi yang sama, ditambah required status check `branch-flow`.
 - Approval ke `main` cukup dari **salah satu** code owner (@onrsama atau @ahmadaqib). GitHub tidak mengizinkan penulis PR meng-approve PR-nya sendiri, jadi PR `staging → main` yang dibuka @onrsama di-approve @ahmadaqib, dan sebaliknya. Keduanya harus punya akses minimal **Write** ke repo agar CODEOWNERS berlaku.
 - Hook hanya mengikat Claude Code. Agent lain (Codex, Cursor, dsb.) tetap tertahan ruleset dan check GitHub, tapi tidak oleh hook lokal; untuk ENV mereka bergantung pada kebijakan ini dan `.gitignore`.
+
+## Uninstall
+
+Dilakukan salah satu owner (lihat README SKILL-DEVS, bagian "Uninstall"):
+1. `bash <SKILL-DEVS>/uninstall.sh <repo>` menghapus folder skill, blok AGENTS.md/CLAUDE.md, hook/deny di settings, serta `branch-flow.yml` dan `CODEOWNERS` bila masih buatan skill. Commit hasilnya lewat alur biasa sampai `main`.
+2. Segera setelah itu: `bash <SKILL-DEVS>/main-branch-guard/scripts/remove-github-protection.sh <owner/repo>` untuk mencabut ruleset.
 
 ## Anggota tim tanpa AI
 

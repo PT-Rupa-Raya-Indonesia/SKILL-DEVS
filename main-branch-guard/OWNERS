@@ -1,0 +1,6 @@
+# Code owner & admin skill main-branch-guard: satu login GitHub per baris.
+# Sumber tunggal untuk CODEOWNERS (dibuat install.sh) dan untuk skrip yang memasang/mencabut
+# ruleset GitHub. Minimal dua orang agar tidak ada single point of failure: salah satu
+# cukup untuk approve PR ke main, memasang ruleset, atau mencabutnya.
+onrsama
+ahmadaqib

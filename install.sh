@@ -74,12 +74,28 @@ JS
 fi
 
 if [[ "$SKILL" == "main-branch-guard" ]]; then
-  if [[ -f "$TARGET/.github/CODEOWNERS" ]]; then
-    echo "• .github/CODEOWNERS sudah ada — tidak ditimpa. Pastikan berisi: * @onrsama @ahmadaqib"
+  # CODEOWNERS dibuat dari OWNERS (sumber tunggal daftar owner).
+  OWNERS_LINE="* $(grep -vE '^\s*(#|$)' "$HERE/$SKILL/OWNERS" | tr -d ' \t\r' | sed 's/^/@/' | paste -sd ' ' -)"
+  CO="$TARGET/.github/CODEOWNERS"
+  if [[ -f "$CO" ]]; then
+    MISSING=""
+    for o in $(grep -vE '^\s*(#|$)' "$HERE/$SKILL/OWNERS" | tr -d ' \t\r'); do
+      grep -qiwF "@$o" "$CO" || MISSING="$MISSING @$o"
+    done
+    if [[ -n "$MISSING" ]]; then
+      echo "⚠ .github/CODEOWNERS sudah ada dan tidak ditimpa, tapi belum memuat:$MISSING"
+      echo "  Ubah baris utamanya menjadi: $OWNERS_LINE"
+    else
+      echo "• .github/CODEOWNERS sudah memuat semua owner"
+    fi
   else
     mkdir -p "$TARGET/.github"
-    cp "$HERE/$SKILL/templates/CODEOWNERS" "$TARGET/.github/CODEOWNERS"
-    echo "✓ .github/CODEOWNERS dibuat (* @onrsama @ahmadaqib)"
+    {
+      echo "# Dibuat SKILL-DEVS/install.sh dari main-branch-guard/OWNERS."
+      echo "# Approval salah satu owner cukup untuk PR ke main. Ubah lewat PR."
+      echo "$OWNERS_LINE"
+    } > "$CO"
+    echo "✓ .github/CODEOWNERS dibuat ($OWNERS_LINE)"
   fi
 
   mkdir -p "$TARGET/.github/workflows"
@@ -111,5 +127,6 @@ Langkah berikutnya (alur: feat/<x> → dev/<nama> → PR staging → PR @onrsama
        bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh --dry-run
        bash .claude/skills/main-branch-guard/scripts/apply-github-protection.sh
   3. Buka ulang sesi Claude Code agar hook terbaca.
+Mencabut skill: bash <SKILL-DEVS>/uninstall.sh <repo-proyek> (lihat README).
 EOF
 fi
